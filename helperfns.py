@@ -4,7 +4,7 @@ import time
 
 import numpy as np
 import tensorflow as tf
-
+import scipy.io
 
 def stack_data(data, num_shifts, len_time):
     nd = data.ndim
@@ -212,6 +212,8 @@ def save_files(sess, saver, csv_path, train_val_error, params, weights, biases):
 def save_params(params):
     with open(params['model_path'].replace('ckpt', 'pkl'), 'wb') as f:
         pickle.dump(params, f, pickle.HIGHEST_PROTOCOL)
+    mat_filename = params['model_path'].replace('ckpt', 'mat')
+    scipy.io.savemat(mat_filename, params)
 
 
 def set_defaults(params):
