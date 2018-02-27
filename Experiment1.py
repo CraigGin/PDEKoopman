@@ -64,18 +64,18 @@ for count in range(200):
     if do == 1:
         wopts = np.arange(20, 110, 10)
         wo = wopts[r.randint(0, len(wopts) - 1)]
-        params['widths_omega'] = [l, wo, l]
+        params['hidden_widths_omega'] = [wo,]
     elif do == 2:
         wopts = np.arange(10, 25, 5)
         wo = wopts[r.randint(0, len(wopts) - 1)]
-        params['widths_omega'] = [l, wo, wo, l]
+        params['hidden_widths_omega'] = [wo, wo]
     elif do == 3:
         wopts = np.arange(5, 20, 5)
         wo = wopts[r.randint(0, len(wopts) - 1)]
-        params['widths_omega'] = [l, wo, wo, wo, l]
+        params['hidden_widths_omega'] = [wo, wo, wo]
     elif do == 4:
         wopts = np.arange(5, 15, 5)
         wo = wopts[r.randint(0, len(wopts) - 1)]
-        params['widths_omega'] = [l, wo, wo, wo, wo, l]
+        params['hidden_widths_omega'] = [wo, wo, wo, wo]
 
     training.main_exp(copy.deepcopy(params))
