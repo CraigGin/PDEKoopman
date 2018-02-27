@@ -43,8 +43,8 @@ def define_loss(x, y, g_list, weights, biases, params, phase, keep_prob):
     loss3 = tf.zeros([1, ], dtype=tf.float64)
     count_shifts_middle = 0
     if params['num_shifts_middle'] > 0:
-        omegas = net.omega_net_apply(phase, keep_prob, params, g_list[0], weights, biases,
-                                     params['num_real'], params['num_complex_pairs'])
+        omegas = net.omega_net_apply(phase, keep_prob, params, g_list[0], weights, biases)
+
         next_step = net.varying_multiply(g_list[0], omegas, params['delta_t'], params['num_real'],
                                          params['num_complex_pairs'])
         for j in np.arange(max(params['shifts_middle'])):
@@ -60,8 +60,8 @@ def define_loss(x, y, g_list, weights, biases, params, phase, keep_prob):
                     tf.reduce_mean(tf.reduce_mean(tf.square(next_step - g_list[count_shifts_middle + 1]), 1)),
                     loss3_denominator)
                 count_shifts_middle += 1
-            omegas = net.omega_net_apply(phase, keep_prob, params, next_step, weights, biases,
-                                     params['num_real'], params['num_complex_pairs'])
+            omegas = net.omega_net_apply(phase, keep_prob, params, next_step, weights, biases)
+
             next_step = net.varying_multiply(next_step, omegas, params['delta_t'], params['num_real'],
                                              params['num_complex_pairs'])
         loss3 = loss3 / params['num_shifts_middle']
