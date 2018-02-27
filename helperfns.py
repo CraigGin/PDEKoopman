@@ -3,8 +3,9 @@ import pickle
 import time
 
 import numpy as np
-import tensorflow as tf
 import scipy.io
+import tensorflow as tf
+
 
 def stack_data(data, num_shifts, len_time):
     nd = data.ndim

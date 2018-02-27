@@ -61,7 +61,7 @@ def define_loss(x, y, g_list, weights, biases, params, phase, keep_prob):
                     loss3_denominator)
                 count_shifts_middle += 1
             omegas = net.omega_net_apply(phase, keep_prob, params, next_step, weights, biases,
-                                     params['num_real'], params['num_complex_pairs'])
+                                         params['num_real'], params['num_complex_pairs'])
             next_step = net.varying_multiply(next_step, omegas, params['delta_t'], params['num_real'],
                                              params['num_complex_pairs'])
         loss3 = loss3 / params['num_shifts_middle']
