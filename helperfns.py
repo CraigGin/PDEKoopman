@@ -238,8 +238,13 @@ def set_defaults(params):
         params['recon_lam'] = 1.0
     if 'first_guess_omega' not in params:
         params['first_guess_omega'] = 0
-    if 'widths_omega' not in params:
-        raise KeyError("Error, must give widths for omega net")
+    if 'hidden_widths_omega' not in params:
+        raise KeyError("Error, must give hidden_widths for omega net")
+    params['widths_omega_complex'] = [1, ] + params['hidden_widths_omega'] + [2, ]
+    params['widths_omega_real'] = [1, ] + params['hidden_widths_omega'] + [1, ]
+    print params['widths_omega_complex']
+    print params['widths_omega_real']
+    print params['widths']
     if 'dist_weights_omega' not in params:
         params['dist_weights_omega'] = 'tn'
     if 'dist_biases_omega' not in params:
@@ -340,9 +345,9 @@ def set_defaults(params):
     if isinstance(params['dist_biases'], int):
         params['dist_biases'] = [params['dist_biases']] * (len(params['widths']) - 1)
     if isinstance(params['dist_weights_omega'], basestring):
-        params['dist_weights_omega'] = [params['dist_weights_omega']] * (len(params['widths_omega']) - 1)
+        params['dist_weights_omega'] = [params['dist_weights_omega']] * (len(params['widths_omega_real']) - 1)
     if isinstance(params['dist_biases_omega'], int):
-        params['dist_biases_omega'] = [params['dist_biases_omega']] * (len(params['widths_omega']) - 1)
+        params['dist_biases_omega'] = [params['dist_biases_omega']] * (len(params['widths_omega_real']) - 1)
 
     return params
 

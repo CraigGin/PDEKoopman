@@ -130,10 +130,10 @@ def decoder_apply(prev_layer, weights, biases, act_type, batch_flag, phase, keep
     return tf.matmul(prev_layer, weights['WD%d' % num_decoder_weights]) + biases['bD%d' % num_decoder_weights]
 
 
-def form_complex_conjugate_block(omegas, mus, delta_t):
-    scale = tf.exp(mus * delta_t)
-    entry11 = tf.multiply(scale, tf.cos(omegas * delta_t))
-    entry12 = tf.multiply(scale, tf.sin(omegas * delta_t))
+def form_complex_conjugate_block(omegas, delta_t):
+    scale = tf.exp(omegas[:, 1] * delta_t)
+    entry11 = tf.multiply(scale, tf.cos(omegas[:, 0] * delta_t))
+    entry12 = tf.multiply(scale, tf.sin(omegas[:, 0] * delta_t))
     row1 = tf.stack([entry11, -entry12], axis=1)  # [None, 2]
     row2 = tf.stack([entry12, entry11], axis=1)  # [None, 2]
     return tf.stack([row1, row2], axis=2)  # [None, 2, 2] put one row below other
@@ -144,64 +144,116 @@ def varying_multiply(y, omegas, delta_t, num_real, num_complex_pairs):
 
     k = y.shape[1]
 
-    output_list = []
+    complex_list = []
 
     # first, Jordan blocks for each pair of complex conjugate eigenvalues
     for j in np.arange(num_complex_pairs):
         ind = 2 * j
         ystack = tf.stack([y[:, ind:ind + 2], y[:, ind:ind + 2]], axis=2)  # [None, 2, 2]
-        L_stack = form_complex_conjugate_block(omegas[:, ind], omegas[:, ind + 1], delta_t)
+        L_stack = form_complex_conjugate_block(omegas[j], delta_t)
         elmtwise_prod = tf.multiply(ystack, L_stack)
-        output_list.append(tf.reduce_sum(elmtwise_prod, 1))
+        complex_list.append(tf.reduce_sum(elmtwise_prod, 1))
+
+    if len(complex_list):
+        # each element in list output_list is shape [None, 2]
+        complex_part = tf.concat(complex_list, axis=1)
 
     # next, diagonal structure for each real eigenvalue
     # faster to not explicitly create stack of diagonal matrices L
-    start_real = 2 * num_complex_pairs
-    real_part = tf.multiply(y[:, start_real:], tf.exp(omegas[:, start_real:] * delta_t))
+    real_list = []
+    for j in np.arange(num_real):
+        ind = 2 * num_complex_pairs + j
+        temp = y[:, ind]
+        real_list.append(tf.multiply(temp[:, np.newaxis], tf.exp(omegas[num_complex_pairs + j] * delta_t)))
 
-    if len(output_list):
-        # each element in list output_list is shape [None, 2]
-        complex_part = tf.concat(output_list, axis=1)
+    if len(real_list):
+        real_part = tf.concat(real_list, axis=1)
+
+    if len(complex_list) and len(real_list):
+        return tf.concat([complex_part, real_part], axis=1)
+    elif len(complex_list):
+        return complex_part
+
+
+
     else:
         return real_part
-
-    output = tf.concat([complex_part, real_part], axis=1)
-
-    return output
 
 
 def create_omega_net(phase, keep_prob, params, ycoords):
     # ycoords is [None, 2] or [None, 3], etc. (temp. only handle 2-diml or 3-diml case)
 
-    weights, biases = decoder(params['widths_omega'], dist_weights=params['dist_weights_omega'],
-                              dist_biases=params['dist_biases_omega'], scale=params['scale_omega'], name='O',
-                              first_guess=params['first_guess_omega'])
-    params['num_omega_weights'] = len(weights)
-    omegas = omega_net_apply(phase, keep_prob, params, ycoords, weights, biases, params['num_real'],
-                             params['num_complex_pairs'])
+    weights = dict()
+    biases = dict()
+
+
+    for j in np.arange(params['num_complex_pairs']):
+        temp_name = 'OC%d_' % (j + 1)
+        create_one_omega_net(params, temp_name, weights, biases, params['widths_omega_complex'])
+
+
+    for j in np.arange(params['num_real']):
+        temp_name = 'OR%d_' % (j + 1)
+        create_one_omega_net(params, temp_name, weights, biases, params['widths_omega_real'])
+
+    params['num_omega_weights'] = len(params['widths_omega_real']) - 1
+
+
+
+
+
+
+
+    omegas = omega_net_apply(phase, keep_prob, params, ycoords, weights, biases)
+
 
     return omegas, weights, biases
 
 
-def omega_net_apply(phase, keep_prob, params, ycoords, weights, biases, num_real, num_complex_pairs):
-    input_list = []
-    for j in np.arange(num_complex_pairs):
+def create_one_omega_net(params, temp_name, weights, biases, widths):
+    weightsO, biasesO = decoder(widths, dist_weights=params['dist_weights_omega'],
+                                dist_biases=params['dist_biases_omega'], scale=params['scale_omega'], name=temp_name,
+                                first_guess=params['first_guess_omega'])
+    weights.update(weightsO)
+    biases.update(biasesO)
+
+
+def omega_net_apply(phase, keep_prob, params, ycoords, weights, biases):
+    omegas = []
+
+    for j in np.arange(params['num_complex_pairs']):
+        temp_name = 'OC%d_' % (j + 1)
         ind = 2 * j
-        input_list.append(tf.reduce_sum(tf.square(ycoords[:, ind:ind + 2]), axis=1, keep_dims=True))
+        omegas.append(
+            omega_net_apply_one(phase, keep_prob, params, ycoords[:, ind:ind + 2], weights, biases, temp_name))
+    for j in np.arange(params['num_real']):
+        temp_name = 'OR%d_' % (j + 1)
+        ind = 2 * params['num_complex_pairs'] + j
+        omegas.append(omega_net_apply_one(phase, keep_prob, params, ycoords[:, ind], weights, biases, temp_name))
 
-    start_real = 2 * num_complex_pairs
-    real_part = ycoords[:, start_real:]
+    return omegas
 
-    if len(input_list):
-        # each element in list output_list is shape [None, 1]
-        complex_part = tf.concat(input_list, axis=1)
-        omega_net_input = tf.concat([complex_part, real_part], axis=1)  # [None, _]
+
+def omega_net_apply_one(phase, keep_prob, params, ycoords, weights, biases, name):
+    if len(ycoords.shape) == 1:
+        ycoords = ycoords[:, np.newaxis]
+
+
+
+    if ycoords.shape[1] == 2:
+        # complex conjugate pair
+        input = tf.reduce_sum(tf.square(ycoords), axis=1, keep_dims=True)
+
+
+
+
 
     else:
-        omega_net_input = real_part
+        input = ycoords
 
-    omegas = encoder_apply_one_shift(omega_net_input, weights, biases, params['act_type'], params['batch_flag'], phase,
-                                     out_flag=0, keep_prob=keep_prob, name='O',
+
+    omegas = encoder_apply_one_shift(input, weights, biases, params['act_type'], params['batch_flag'], phase,
+                                     out_flag=0, keep_prob=keep_prob, name=name,
                                      num_encoder_weights=params['num_omega_weights'])
 
     return omegas
@@ -251,8 +303,8 @@ def create_koopman_net(phase, keep_prob, params):
             y.append(decoder_apply(advanced_layer, weights, biases, params['act_type'], params['batch_flag'], phase,
                                    keep_prob, params['num_decoder_weights']))
 
-        omegas = omega_net_apply(phase, keep_prob, params, advanced_layer, weights, biases, params['num_real'],
-                                 params['num_complex_pairs'])
+        omegas = omega_net_apply(phase, keep_prob, params, advanced_layer, weights, biases)
+
         advanced_layer = varying_multiply(advanced_layer, omegas, params['delta_t'], params['num_real'],
                                           params['num_complex_pairs'])
 
