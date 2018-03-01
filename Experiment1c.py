@@ -7,8 +7,7 @@ import training
 
 params = {}
 params['data_name'] = 'Heat_Eqn_IC_10_BC_periodic'  ## FILL IN HERE (from file name)
-params['folder_name'] = 'exp1'
-params['auto_first'] = 1
+params['folder_name'] = 'exp1c'
 params['num_real'] = 10  ## CHECK THIS (how many eigenvalues / how many frequencies)
 params['num_complex_pairs'] = 0
 
@@ -16,7 +15,7 @@ params['num_passes_per_file'] = 15 * 6 * 10
 params['num_steps_per_batch'] = 2
 n = 40  # number of inputs (spatial discretization)
 params['len_time'] = 101  ## CHECK THIS (number of time steps is 40?)
-params['max_time'] = 30 * 60  # this means each experiment will run up to 30 minutes
+params['max_time'] = 60 * 60  # this means each experiment will run up to 1 hour
 deltat = 0.01  ## FILL IN HERE: your time step
 params['delta_t'] = deltat
 params['num_evals'] = params['num_real'] + 2 * params['num_complex_pairs']
@@ -29,17 +28,21 @@ params['recon_lam'] = .1
 
 params['denoising'] = 0
 params['L1_lam'] = 0.0
-params['learning_rate'] = 10 ** (-3)
-params['min_5min'] = 0.5
+params['min_5min'] = 1 # essentially no checking
+params['min_20min'] = 1
+params['min_40min'] = 1
+params['min_halfway'] = 1
 
 for count in range(200):
+    params['auto_first'] = r.randint(0,1)
+    params['learning_rate'] = 10**(-r.randint(2,5))
     params['num_shifts_middle'] = params['len_time'] - 1
     max_shifts = max(params['num_shifts'], params['num_shifts_middle'])
     num_examples = numICs * (params['len_time'] - max_shifts)
     params['batch_size'] = 10
     steps_to_see_all = num_examples / params['batch_size']
     params['num_steps_per_file_pass'] = (int(steps_to_see_all) + 1) * params['num_steps_per_batch']
-    params['L2_lam'] = 10 ** (-r.randint(13, 15))
+    params['L2_lam'] = 0.0
     params['Linf_lam'] = 10 ** (-r.randint(6, 10))
 
     d = r.randint(1, 4)

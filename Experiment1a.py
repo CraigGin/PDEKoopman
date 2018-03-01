@@ -7,7 +7,7 @@ import training
 
 params = {}
 params['data_name'] = 'Heat_Eqn_IC_10_BC_periodic'  ## FILL IN HERE (from file name)
-params['folder_name'] = 'exp1'
+params['folder_name'] = 'exp1a'
 params['auto_first'] = 1
 params['num_real'] = 10  ## CHECK THIS (how many eigenvalues / how many frequencies)
 params['num_complex_pairs'] = 0
@@ -31,6 +31,7 @@ params['denoising'] = 0
 params['L1_lam'] = 0.0
 params['learning_rate'] = 10 ** (-3)
 params['min_5min'] = 0.5
+params['min_halfway'] = .05
 
 for count in range(200):
     params['num_shifts_middle'] = params['len_time'] - 1

@@ -7,7 +7,7 @@ import training
 
 params = {}
 params['data_name'] = 'Heat_Eqn_IC_10_BC_periodic'  ## FILL IN HERE (from file name)
-params['folder_name'] = 'exp1'
+params['folder_name'] = 'exp1b'
 params['auto_first'] = 1
 params['num_real'] = 10  ## CHECK THIS (how many eigenvalues / how many frequencies)
 params['num_complex_pairs'] = 0
@@ -16,7 +16,7 @@ params['num_passes_per_file'] = 15 * 6 * 10
 params['num_steps_per_batch'] = 2
 n = 40  # number of inputs (spatial discretization)
 params['len_time'] = 101  ## CHECK THIS (number of time steps is 40?)
-params['max_time'] = 30 * 60  # this means each experiment will run up to 30 minutes
+params['max_time'] = 60 * 60  # this means each experiment will run up to 1 hour
 deltat = 0.01  ## FILL IN HERE: your time step
 params['delta_t'] = deltat
 params['num_evals'] = params['num_real'] + 2 * params['num_complex_pairs']
@@ -30,7 +30,10 @@ params['recon_lam'] = .1
 params['denoising'] = 0
 params['L1_lam'] = 0.0
 params['learning_rate'] = 10 ** (-3)
-params['min_5min'] = 0.5
+params['min_5min'] = 0.07
+params['min_20min'] = 0.04
+params['min_40min'] = 0.02
+params['min_halfway'] = 0.03
 
 for count in range(200):
     params['num_shifts_middle'] = params['len_time'] - 1
