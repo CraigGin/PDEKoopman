@@ -307,6 +307,14 @@ def set_defaults(params):
         params['min_4hr'] = 10 ** (-5.75)
     if 'min_halfway' not in params:
         params['min_halfway'] = 10 ** (-4)
+
+    if 'autoencoder_only' in params:
+        if params['autoencoder_only']:
+            params['prediction_loss_lam'] = 0
+            params['linearity_loss_lam'] = 0
+    else:
+        params['autoencoder_only'] = 0
+
     if 'recon_lam' in params:
         # instead of recon_lam, now have separated autoencoder_loss_lam and prediction_loss_lam
         if 'autoencoder_loss_lam' in params:
@@ -330,11 +338,6 @@ def set_defaults(params):
         else:
             params['prediction_loss_lam'] = params['recon_lam']
             print("Note: replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam")
-
-    if 'autoencoder_loss_lam' not in params:
-        params['autoencoder_loss_lam'] = 1.0
-    if 'prediction_loss_lam' not in params:
-        params['prediction_loss_lam'] = 1.0
 
     if 'mid_shift_lam' in params:
         # renamed mid_shift_lam to linearity_loss_lam
@@ -378,23 +381,10 @@ def set_defaults(params):
     if 'num_shifts_middle' not in params:
         params['num_shifts_middle'] = len(params['shifts_middle'])
 
-    if 'autoencoder_only' in params:
-        if params['autoencoder_only']:
-            params['prediction_loss_lam'] = 0
-            params['linearity_loss_lam'] = 0
-    else:
-        params['autoencoder_only'] = 0
-
-    if params['prediction_loss_lam'] == 0 and params['linearity_loss_lam'] == 0:
-        params['autoencoder_only'] = 1
-
-        # then shouldn't have any shifts or shifts_middle
-        if params['num_shifts']:
-            raise ValueError('doing autoencoder only, so should have num_shifts = 0')
-        if params['num_shifts_middle']:
-            raise ValueError('doing autoencoder only, so should have num_shifts_middle = 0')
-    else:
-        params['autoencoder_only'] = 0
+    if 'autoencoder_loss_lam' not in params:
+        params['autoencoder_loss_lam'] = 1.0
+    if 'prediction_loss_lam' not in params:
+        params['prediction_loss_lam'] = 1.0
 
     params['been5min'] = 0
     params['been20min'] = 0
@@ -410,7 +400,14 @@ def set_defaults(params):
     if isinstance(params['dist_biases'], int):
         params['dist_biases'] = [params['dist_biases']] * (len(params['widths']) - 1)
 
-    if not params['autoencoder_only']:
+    if params['autoencoder_only']:
+        # then shouldn't have any shifts or shifts_middle
+        if params['num_shifts']:
+            raise ValueError('doing autoencoder only, so should have num_shifts = 0')
+        if params['num_shifts_middle']:
+            raise ValueError('doing autoencoder only, so should have num_shifts_middle = 0')
+
+    else:
         if 'num_real' not in params:
             raise KeyError("Error, must give number of real eigenvalues: num_real")
         if 'num_complex_pairs' not in params:
