@@ -10,6 +10,7 @@ params['data_name'] = 'Heat_Eqn_IC_10_BC_periodic'  ## FILL IN HERE (from file n
 params['folder_name'] = 'exp2'
 
 params['autoencoder_only'] = 1
+params['dist_weights'] = 'dl'
 
 params['num_evals'] = 10  ## CHECK THIS (how many eigenvalues / how many frequencies)
 l = params['num_evals']
