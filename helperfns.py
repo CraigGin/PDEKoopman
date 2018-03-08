@@ -390,6 +390,11 @@ def set_defaults(params):
     if 'num_shifts_middle' not in params:
         params['num_shifts_middle'] = len(params['shifts_middle'])
 
+    if 'autoencoder_only' in params:
+        if params['autoencoder_only']:
+            params['prediction_loss_lam'] = 0
+            params['linearity_loss_lam'] = 0
+            
     if params['prediction_loss_lam'] == 0 and params['linearity_loss_lam'] == 0:
         params['autoencoder_only'] = 1
 
