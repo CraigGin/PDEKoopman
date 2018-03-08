@@ -17,7 +17,7 @@ k = (2*pi/L)*[0:n/2-1 -n/2:-1]; % vector of wave numbers
 
 % Evolve in time and Inverse FT at each time
 for ti = 1:length(t)
-    U(ti,:) = ifft(exp(-k.^2*t(ti)).*u_0t);
+    U(ti,:) = ifft(exp(-D*k.^2*t(ti)).*u_0t);
 end
 
 end

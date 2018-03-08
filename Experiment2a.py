@@ -6,7 +6,7 @@ import numpy as np
 import training
 
 params = {}
-params['data_name'] = 'Heat_Eqn_IC_10_BC_periodic'  ## FILL IN HERE (from file name)
+params['data_name'] = 'Heat_Eqn_IC_10_exp2a'  ## FILL IN HERE (from file name)
 params['folder_name'] = 'exp2a' # UPDATE so goes in own folder
 
 params['autoencoder_only'] = 1
@@ -15,7 +15,7 @@ params['dist_weights'] = 'dl'
 params['num_evals'] = 10  ## CHECK THIS (how many eigenvalues / how many frequencies / what's the low dimension)
 l = params['num_evals']
 
-n = 40  # number of inputs (spatial discretization)
+n = 128  # number of inputs (spatial discretization)
 params['len_time'] = 101  ## CHECK THIS (number of time steps)
 params['delta_t'] = 0.01  ## FILL IN HERE: your time step
 
