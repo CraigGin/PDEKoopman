@@ -234,8 +234,6 @@ def set_defaults(params):
         raise ValueError("Error, num_evals must equal 2*num_compex_pairs + num_real")
     if 'relative_loss' not in params:
         params['relative_loss'] = 0
-    if 'recon_lam' not in params:
-        params['recon_lam'] = 1.0
     if 'first_guess_omega' not in params:
         params['first_guess_omega'] = 0
     if 'hidden_widths_omega' not in params:
@@ -251,10 +249,6 @@ def set_defaults(params):
         params['dist_biases_omega'] = 0
     if 'scale_omega' not in params:
         params['scale_omega'] = 0.1
-    if 'shifts' not in params:
-        params['shifts'] = np.arange(params['num_shifts']) + 1
-    if 'shifts_middle' not in params:
-        params['shifts_middle'] = np.arange(params['num_shifts_middle']) + 1
     if 'first_guess' not in params:
         params['first_guess'] = 0
     if 'num_passes_per_file' not in params:
@@ -295,10 +289,6 @@ def set_defaults(params):
         params['opt_alg'] = 'adam'
     if 'decay_rate' not in params:
         params['decay_rate'] = 0
-    if 'num_shifts' not in params:
-        params['num_shifts'] = len(params['shifts'])
-    if 'num_shifts_middle' not in params:
-        params['num_shifts_middle'] = len(params['shifts_middle'])
     if 'batch_size' not in params:
         params['batch_size'] = 0
     if 'len_time' not in params:
@@ -329,8 +319,88 @@ def set_defaults(params):
         params['min_4hr'] = 10 ** (-5.75)
     if 'min_halfway' not in params:
         params['min_halfway'] = 10 ** (-4)
-    if 'mid_shift_lam' not in params:
-        params['mid_shift_lam'] = 1.0
+    if 'recon_lam' in params:
+        # instead of recon_lam, now have separated autoencoder_loss_lam and prediction_loss_lam
+        if 'autoencoder_loss_lam' in params:
+            if params['recon_lam'] != params['autoencoder_loss_lam']:
+                raise KeyError(
+                    "Error, replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam, so shouldn't have both recon_lam and autoencoder_loss_lam as keys")
+            else:
+                # included both, but fine because same value
+                print("Note: replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam")
+        else:
+            params['autoencoder_loss_lam'] = params['recon_lam']
+            print("Note: replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam")
+
+        if 'prediction_loss_lam' in params:
+            if params['recon_lam'] != params['prediction_loss_lam']:
+                raise KeyError(
+                    "Error, replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam, so shouldn't have both recon_lam and prediction_loss_lam as keys")
+            else:
+                # included both, but fine because same value
+                print("Note: replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam")
+        else:
+            params['prediction_loss_lam'] = params['recon_lam']
+            print("Note: replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam")
+
+    if 'autoencoder_loss_lam' not in params:
+        params['autoencoder_loss_lam'] = 1.0
+    if 'prediction_loss_lam' not in params:
+        params['prediction_loss_lam'] = 1.0
+
+    if 'mid_shift_lam' in params:
+        # renamed mid_shift_lam to linearity_loss_lam
+        if 'linearity_loss_lam' in params:
+            if params['linearity_loss_lam'] != params['mid_shift_lam']:
+                raise KeyError("Error, renamed mid_shift_lam to linearity_loss_lam, so shouldn't have both as keys")
+            else:
+                # included both, but fine because same value
+                print("Note: renamed mid_shift_lam to linearity_loss_lam")
+        else:
+            # called it mid_shift_lam instead of linearity_loss_lam
+            params['linearity_loss_lam'] = params['mid_shift_lam']
+            print("Note: renamed mid_shift_lam to linearity_loss_lam")
+    if 'linearity_loss_lam' not in params:
+        params['linearity_loss_lam'] = 1.0
+
+    if 'shifts' not in params:
+        if 'num_shifts' in params:
+            params['shifts'] = np.arange(params['num_shifts']) + 1
+        else:
+            # shifts AND num_shifts not in params: fine only if prediction_loss_lam = 0
+            if params['prediction_loss_lam']:
+                raise KeyError('Have nonzero prediction_loss_lam but not shifts or num_shifts')
+            else:
+                params['shifts'] = []
+                params['num_shifts'] = 0
+
+    if 'shifts_middle' not in params:
+        if 'num_shifts_middle' in params:
+            params['shifts_middle'] = np.arange(params['num_shifts_middle']) + 1
+        else:
+            # shifts_middle AND num_shifts_middle not in params: fine only if linearity_loss_lam = 0
+            if params['linearity_loss_lam']:
+                raise KeyError('Have nonzero linearity_loss_lam but not shifts_middle or num_shifts_middle')
+            else:
+                params['shifts_middle'] = []
+                params['num_shifts_middle'] = 0
+
+    if 'num_shifts' not in params:
+        params['num_shifts'] = len(params['shifts'])
+    if 'num_shifts_middle' not in params:
+        params['num_shifts_middle'] = len(params['shifts_middle'])
+
+    if params['prediction_loss_lam'] == 0 and params['linearity_loss_lam'] == 0:
+        params['autoencoder_only'] = 1
+
+        # then shouldn't have any shifts or shifts_middle
+        if params['num_shifts']:
+            raise ValueError('doing autoencoder only, so should have num_shifts = 0')
+        if params['num_shifts_middle']:
+            raise ValueError('doing autoencoder only, so should have num_shifts_middle = 0')
+    else:
+        params['autoencoder_only'] = 0
+
     params['been5min'] = 0
     params['been20min'] = 0
     params['been40min'] = 0
