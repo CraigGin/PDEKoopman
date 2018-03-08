@@ -423,7 +423,7 @@ def set_defaults(params):
 
 
 def num_shifts_in_stack(params):
-    max_shifts_to_stack = 1
+    max_shifts_to_stack = 0
     if params['num_shifts']:
         max_shifts_to_stack = max(max_shifts_to_stack, max(params['shifts']))
     if params['num_shifts_middle']:
