@@ -226,22 +226,10 @@ def set_defaults(params):
         params['denoising'] = 0.0
     if 'num_evals' not in params:
         raise KeyError("Error, must give number of evals: num_evals")
-    if 'num_real' not in params:
-        raise KeyError("Error, must give number of real eigenvalues: num_real")
-    if 'num_complex_pairs' not in params:
-        raise KeyError("Error, must give number of pairs of complex eigenvalues: num_complex_pairs")
-    if params['num_evals'] != (2 * params['num_complex_pairs'] + params['num_real']):
-        raise ValueError("Error, num_evals must equal 2*num_compex_pairs + num_real")
     if 'relative_loss' not in params:
         params['relative_loss'] = 0
     if 'first_guess_omega' not in params:
         params['first_guess_omega'] = 0
-    if 'hidden_widths_omega' not in params:
-        raise KeyError("Error, must give hidden_widths for omega net")
-    params['widths_omega_complex'] = [1, ] + params['hidden_widths_omega'] + [2, ]
-    params['widths_omega_real'] = [1, ] + params['hidden_widths_omega'] + [1, ]
-    print params['widths_omega_complex']
-    print params['widths_omega_real']
     print params['widths']
     if 'dist_weights_omega' not in params:
         params['dist_weights_omega'] = 'tn'
@@ -394,7 +382,9 @@ def set_defaults(params):
         if params['autoencoder_only']:
             params['prediction_loss_lam'] = 0
             params['linearity_loss_lam'] = 0
-            
+    else:
+        params['autoencoder_only'] = 0
+
     if params['prediction_loss_lam'] == 0 and params['linearity_loss_lam'] == 0:
         params['autoencoder_only'] = 1
 
@@ -419,10 +409,24 @@ def set_defaults(params):
         params['dist_weights'] = [params['dist_weights']] * (len(params['widths']) - 1)
     if isinstance(params['dist_biases'], int):
         params['dist_biases'] = [params['dist_biases']] * (len(params['widths']) - 1)
-    if isinstance(params['dist_weights_omega'], basestring):
-        params['dist_weights_omega'] = [params['dist_weights_omega']] * (len(params['widths_omega_real']) - 1)
-    if isinstance(params['dist_biases_omega'], int):
-        params['dist_biases_omega'] = [params['dist_biases_omega']] * (len(params['widths_omega_real']) - 1)
+
+    if not params['autoencoder_only']:
+        if 'num_real' not in params:
+            raise KeyError("Error, must give number of real eigenvalues: num_real")
+        if 'num_complex_pairs' not in params:
+            raise KeyError("Error, must give number of pairs of complex eigenvalues: num_complex_pairs")
+        if params['num_evals'] != (2 * params['num_complex_pairs'] + params['num_real']):
+            raise ValueError("Error, num_evals must equal 2*num_compex_pairs + num_real")
+        if 'hidden_widths_omega' not in params:
+            raise KeyError("Error, must give hidden_widths for omega net")
+        params['widths_omega_complex'] = [1, ] + params['hidden_widths_omega'] + [2, ]
+        params['widths_omega_real'] = [1, ] + params['hidden_widths_omega'] + [1, ]
+        print params['widths_omega_complex']
+        print params['widths_omega_real']
+        if isinstance(params['dist_weights_omega'], basestring):
+            params['dist_weights_omega'] = [params['dist_weights_omega']] * (len(params['widths_omega_real']) - 1)
+        if isinstance(params['dist_biases_omega'], int):
+            params['dist_biases_omega'] = [params['dist_biases_omega']] * (len(params['widths_omega_real']) - 1)
 
     return params
 
