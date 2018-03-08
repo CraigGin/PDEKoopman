@@ -81,8 +81,11 @@ def define_loss(x, y, g_list, weights, biases, params, phase, keep_prob):
         Linf2_den = tf.to_double(1.0)
     Linf1_penalty = tf.truediv(
         tf.norm(tf.norm(y[0] - tf.squeeze(x[0, :, :]), axis=1, ord=np.inf), ord=np.inf), Linf1_den)
-    Linf2_penalty = tf.truediv(
-        tf.norm(tf.norm(y[1] - tf.squeeze(x[1, :, :]), axis=1, ord=np.inf), ord=np.inf), Linf2_den)
+    if x.shape[0] > 1:
+        Linf2_penalty = tf.truediv(
+            tf.norm(tf.norm(y[1] - tf.squeeze(x[1, :, :]), axis=1, ord=np.inf), ord=np.inf), Linf2_den)
+    else:
+        Linf2_penalty = tf.zeros([1, ], dtype=tf.float64)
     loss_Linf = params['Linf_lam'] * (Linf1_penalty + Linf2_penalty)
 
     loss = loss1 + loss2 + loss3 + loss_Linf

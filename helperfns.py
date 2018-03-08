@@ -226,22 +226,10 @@ def set_defaults(params):
         params['denoising'] = 0.0
     if 'num_evals' not in params:
         raise KeyError("Error, must give number of evals: num_evals")
-    if 'num_real' not in params:
-        raise KeyError("Error, must give number of real eigenvalues: num_real")
-    if 'num_complex_pairs' not in params:
-        raise KeyError("Error, must give number of pairs of complex eigenvalues: num_complex_pairs")
-    if params['num_evals'] != (2 * params['num_complex_pairs'] + params['num_real']):
-        raise ValueError("Error, num_evals must equal 2*num_compex_pairs + num_real")
     if 'relative_loss' not in params:
         params['relative_loss'] = 0
     if 'first_guess_omega' not in params:
         params['first_guess_omega'] = 0
-    if 'hidden_widths_omega' not in params:
-        raise KeyError("Error, must give hidden_widths for omega net")
-    params['widths_omega_complex'] = [1, ] + params['hidden_widths_omega'] + [2, ]
-    params['widths_omega_real'] = [1, ] + params['hidden_widths_omega'] + [1, ]
-    print params['widths_omega_complex']
-    print params['widths_omega_real']
     print params['widths']
     if 'dist_weights_omega' not in params:
         params['dist_weights_omega'] = 'tn'
@@ -319,6 +307,14 @@ def set_defaults(params):
         params['min_4hr'] = 10 ** (-5.75)
     if 'min_halfway' not in params:
         params['min_halfway'] = 10 ** (-4)
+
+    if 'autoencoder_only' in params:
+        if params['autoencoder_only']:
+            params['prediction_loss_lam'] = 0
+            params['linearity_loss_lam'] = 0
+    else:
+        params['autoencoder_only'] = 0
+
     if 'recon_lam' in params:
         # instead of recon_lam, now have separated autoencoder_loss_lam and prediction_loss_lam
         if 'autoencoder_loss_lam' in params:
@@ -342,11 +338,6 @@ def set_defaults(params):
         else:
             params['prediction_loss_lam'] = params['recon_lam']
             print("Note: replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam")
-
-    if 'autoencoder_loss_lam' not in params:
-        params['autoencoder_loss_lam'] = 1.0
-    if 'prediction_loss_lam' not in params:
-        params['prediction_loss_lam'] = 1.0
 
     if 'mid_shift_lam' in params:
         # renamed mid_shift_lam to linearity_loss_lam
@@ -390,16 +381,10 @@ def set_defaults(params):
     if 'num_shifts_middle' not in params:
         params['num_shifts_middle'] = len(params['shifts_middle'])
 
-    if params['prediction_loss_lam'] == 0 and params['linearity_loss_lam'] == 0:
-        params['autoencoder_only'] = 1
-
-        # then shouldn't have any shifts or shifts_middle
-        if params['num_shifts']:
-            raise ValueError('doing autoencoder only, so should have num_shifts = 0')
-        if params['num_shifts_middle']:
-            raise ValueError('doing autoencoder only, so should have num_shifts_middle = 0')
-    else:
-        params['autoencoder_only'] = 0
+    if 'autoencoder_loss_lam' not in params:
+        params['autoencoder_loss_lam'] = 1.0
+    if 'prediction_loss_lam' not in params:
+        params['prediction_loss_lam'] = 1.0
 
     params['been5min'] = 0
     params['been20min'] = 0
@@ -414,16 +399,37 @@ def set_defaults(params):
         params['dist_weights'] = [params['dist_weights']] * (len(params['widths']) - 1)
     if isinstance(params['dist_biases'], int):
         params['dist_biases'] = [params['dist_biases']] * (len(params['widths']) - 1)
-    if isinstance(params['dist_weights_omega'], basestring):
-        params['dist_weights_omega'] = [params['dist_weights_omega']] * (len(params['widths_omega_real']) - 1)
-    if isinstance(params['dist_biases_omega'], int):
-        params['dist_biases_omega'] = [params['dist_biases_omega']] * (len(params['widths_omega_real']) - 1)
+
+    if params['autoencoder_only']:
+        # then shouldn't have any shifts or shifts_middle
+        if params['num_shifts']:
+            raise ValueError('doing autoencoder only, so should have num_shifts = 0')
+        if params['num_shifts_middle']:
+            raise ValueError('doing autoencoder only, so should have num_shifts_middle = 0')
+
+    else:
+        if 'num_real' not in params:
+            raise KeyError("Error, must give number of real eigenvalues: num_real")
+        if 'num_complex_pairs' not in params:
+            raise KeyError("Error, must give number of pairs of complex eigenvalues: num_complex_pairs")
+        if params['num_evals'] != (2 * params['num_complex_pairs'] + params['num_real']):
+            raise ValueError("Error, num_evals must equal 2*num_compex_pairs + num_real")
+        if 'hidden_widths_omega' not in params:
+            raise KeyError("Error, must give hidden_widths for omega net")
+        params['widths_omega_complex'] = [1, ] + params['hidden_widths_omega'] + [2, ]
+        params['widths_omega_real'] = [1, ] + params['hidden_widths_omega'] + [1, ]
+        print params['widths_omega_complex']
+        print params['widths_omega_real']
+        if isinstance(params['dist_weights_omega'], basestring):
+            params['dist_weights_omega'] = [params['dist_weights_omega']] * (len(params['widths_omega_real']) - 1)
+        if isinstance(params['dist_biases_omega'], int):
+            params['dist_biases_omega'] = [params['dist_biases_omega']] * (len(params['widths_omega_real']) - 1)
 
     return params
 
 
 def num_shifts_in_stack(params):
-    max_shifts_to_stack = 1
+    max_shifts_to_stack = 0
     if params['num_shifts']:
         max_shifts_to_stack = max(max_shifts_to_stack, max(params['shifts']))
     if params['num_shifts_middle']:
