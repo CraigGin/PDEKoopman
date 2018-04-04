@@ -1,0 +1,5 @@
+*.ckpt*
+*.csv
+*.mat
+*.pkl
+*.pyc
