@@ -29,7 +29,9 @@ def define_loss(x, y, g_list, weights, biases, params, phase, keep_prob):
         loss1 = tf.zeros([1, ], dtype=tf.float64)
 
     # gets dynamics (prediction loss)
+    loss2 = tf.zeros([1, ], dtype=tf.float64)
     if params['prediction_loss_lam']:
+
         for j in np.arange(params['num_shifts']):
             # xk+1, xk+2, xk+3
             shift = params['shifts'][j]
@@ -41,10 +43,9 @@ def define_loss(x, y, g_list, weights, biases, params, phase, keep_prob):
             loss2 = loss2 + params['prediction_loss_lam'] * tf.truediv(
                 tf.reduce_mean(tf.reduce_mean(tf.square(y[j + 1] - tf.squeeze(x[shift, :, :])), 1)), loss2_denominator)
         loss2 = loss2 / params['num_shifts']
-    else:
-        loss2 = tf.zeros([1, ], dtype=tf.float64)
 
     # K linear
+    loss3 = tf.zeros([1, ], dtype=tf.float64)
     if params['linearity_loss_lam']:
         count_shifts_middle = 0
 
@@ -76,8 +77,6 @@ def define_loss(x, y, g_list, weights, biases, params, phase, keep_prob):
                 next_step = net.varying_multiply(next_step, omegas, params['delta_t'], params['num_real'],
                                                  params['num_complex_pairs'])
         loss3 = loss3 / params['num_shifts_middle']
-    else:
-        loss3 = tf.zeros([1, ], dtype=tf.float64)
 
     # inf norm on autoencoder error
     if params['relative_loss']:
