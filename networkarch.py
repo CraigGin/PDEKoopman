@@ -174,8 +174,6 @@ def varying_multiply(y, omegas, delta_t, num_real, num_complex_pairs):
     elif len(complex_list):
         return complex_part
 
-
-
     else:
         return real_part
 

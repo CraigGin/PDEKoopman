@@ -6,8 +6,8 @@ import numpy as np
 import training
 
 params = {}
-params['data_name'] = 'Heat_Eqn_IC_10_exp2a'  ## FILL IN HERE (from file name)
-params['folder_name'] = 'exp2a' # UPDATE so goes in own folder
+params['data_name'] = 'Heat_Eqn_IC_1_exp3'  ## FILL IN HERE (from file name)
+params['folder_name'] = 'exp3' # UPDATE so goes in own folder
 
 params['autoencoder_only'] = 1
 params['dist_weights'] = 'dl'
@@ -23,7 +23,7 @@ params['max_time'] = 4 * 60 * 60  # this means each experiment will run up to 4 
 params['num_passes_per_file'] = 15 * 6 * 10 # but I think it will quit after 5-ish minutes because this number of loops is so low
 params['num_steps_per_batch'] = 2
 
-numICs = 10  # CHECK THIS (number of initial conditions)
+numICs = 1  # CHECK THIS (number of initial conditions)
 num_examples = numICs * params['len_time']
 params['batch_size'] = num_examples
 steps_to_see_all = num_examples / params['batch_size']
