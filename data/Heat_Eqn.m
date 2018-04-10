@@ -84,7 +84,7 @@ for i = 1:n_IC
     Data(i*n_time-(n_time-1):i*n_time,:) = U;
 end
 
-filename = strcat('Heat_Eqn_IC_',num2str(n_IC),'_',exp_num,'_',data_set,'.csv');
+filename = strcat('Heat_Eqn_',exp_num,'_',data_set,'.csv');
 dlmwrite(filename, Data, 'precision', '%.14f')
 
 %surfl(x,t,real(U)); 
