@@ -218,6 +218,9 @@ def save_params(params):
 
 
 def set_defaults(params):
+    if 'fixed_L' not in params:
+	# default is that L does not vary
+	params['fixed_L'] = 0
     if 'rel_noise_flag' not in params:
         params['rel_noise_flag'] = 0
     if 'auto_first' not in params:
@@ -320,7 +323,8 @@ def set_defaults(params):
         if 'autoencoder_loss_lam' in params:
             if params['recon_lam'] != params['autoencoder_loss_lam']:
                 raise KeyError(
-                    "Error, replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam, so shouldn't have both recon_lam and autoencoder_loss_lam as keys")
+                    "Error, replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam, so "
+                    "shouldn't have both recon_lam and autoencoder_loss_lam as keys")
             else:
                 # included both, but fine because same value
                 print("Note: replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam")
@@ -331,7 +335,8 @@ def set_defaults(params):
         if 'prediction_loss_lam' in params:
             if params['recon_lam'] != params['prediction_loss_lam']:
                 raise KeyError(
-                    "Error, replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam, so shouldn't have both recon_lam and prediction_loss_lam as keys")
+                    "Error, replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam, so "
+                    "shouldn't have both recon_lam and prediction_loss_lam as keys")
             else:
                 # included both, but fine because same value
                 print("Note: replaced recon_lam with separated autoencoder_loss_lam and prediction_loss_lam")

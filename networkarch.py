@@ -174,8 +174,6 @@ def varying_multiply(y, omegas, delta_t, num_real, num_complex_pairs):
     elif len(complex_list):
         return complex_part
 
-
-
     else:
         return real_part
 
@@ -248,6 +246,7 @@ def create_koopman_net(phase, keep_prob, params):
 
     max_shifts_to_stack = helperfns.num_shifts_in_stack(params)
 
+    k = params['widths'][depth + 1]
     encoder_widths = params['widths'][0:depth + 2]  # n ... k
     x, x_noisy, weights, biases = encoder(encoder_widths, dist_weights=params['dist_weights'][0:depth + 1],
                                           dist_biases=params['dist_biases'][0:depth + 1], scale=params['scale'],
@@ -258,11 +257,15 @@ def create_koopman_net(phase, keep_prob, params):
                            num_encoder_weights=params['num_encoder_weights'])
 
     if not params['autoencoder_only']:
-        # g_list_omega is list of omegas, one entry for each middle_shift of x (like g_list)
-        omegas, weights_omega, biases_omega = create_omega_net(phase, keep_prob, params, g_list[0])
-        # params['num_omega_weights'] = len(weights_omega) already done inside create_omega_net
-        weights.update(weights_omega)
-        biases.update(biases_omega)
+        if not params['fixed_L']:
+            # g_list_omega is list of omegas, one entry for each middle_shift of x (like g_list)
+            omegas, weights_omega, biases_omega = create_omega_net(phase, keep_prob, params, g_list[0])
+            # params['num_omega_weights'] = len(weights_omega) already done inside create_omega_net
+            weights.update(weights_omega)
+            biases.update(biases_omega)
+        else:
+            L = weight_variable([k, k], var_name='L') # no distribution, scale, first_guess
+            weights.update(L)
 
     num_widths = len(params['widths'])
     decoder_widths = params['widths'][depth + 2:num_widths]  # k ... n
@@ -280,8 +283,11 @@ def create_koopman_net(phase, keep_prob, params):
 
     if not params['autoencoder_only']:
         # g_list_omega[0] is for x[0,:,:], pairs with g_list[0]=encoded_layer
-        advanced_layer = varying_multiply(encoded_layer, omegas, params['delta_t'], params['num_real'],
-                                          params['num_complex_pairs'])
+        if params['fixed_L']:
+            advanced_layer = tf.matmul(encoded_layer, weights['L'])
+        else:
+            advanced_layer = varying_multiply(encoded_layer, omegas, params['delta_t'], params['num_real'],
+                                              params['num_complex_pairs'])
 
         for j in np.arange(max(params['shifts'])):  # loops 0, 1, ...
             # considering penalty on subset of yk+1, yk+2, yk+3, ... yk+20
@@ -289,10 +295,12 @@ def create_koopman_net(phase, keep_prob, params):
                 y.append(decoder_apply(advanced_layer, weights, biases, params['act_type'], params['batch_flag'], phase,
                                        keep_prob, params['num_decoder_weights']))
 
-            omegas = omega_net_apply(phase, keep_prob, params, advanced_layer, weights, biases)
-
-            advanced_layer = varying_multiply(advanced_layer, omegas, params['delta_t'], params['num_real'],
-                                              params['num_complex_pairs'])
+            if params['fixed_L']:
+                advanced_layer = tf.matmul(advanced_layer, weights['L'])
+            else:
+                omegas = omega_net_apply(phase, keep_prob, params, advanced_layer, weights, biases)
+                advanced_layer = varying_multiply(advanced_layer, omegas, params['delta_t'], params['num_real'],
+                                                  params['num_complex_pairs'])
 
     if len(y) != (len(params['shifts']) + 1):
         print "messed up looping over shifts! %r" % params['shifts']
