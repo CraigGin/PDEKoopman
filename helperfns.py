@@ -219,8 +219,8 @@ def save_params(params):
 
 def set_defaults(params):
     if 'fixed_L' not in params:
-	# default is that L does not vary
-	params['fixed_L'] = 0
+        # default is that L does not vary
+        params['fixed_L'] = 0
     if 'rel_noise_flag' not in params:
         params['rel_noise_flag'] = 0
     if 'auto_first' not in params:
@@ -234,10 +234,6 @@ def set_defaults(params):
     if 'first_guess_omega' not in params:
         params['first_guess_omega'] = 0
     print params['widths']
-    if 'dist_weights_omega' not in params:
-        params['dist_weights_omega'] = 'tn'
-    if 'dist_biases_omega' not in params:
-        params['dist_biases_omega'] = 0
     if 'scale_omega' not in params:
         params['scale_omega'] = 0.1
     if 'first_guess' not in params:
@@ -419,16 +415,23 @@ def set_defaults(params):
             raise KeyError("Error, must give number of pairs of complex eigenvalues: num_complex_pairs")
         if params['num_evals'] != (2 * params['num_complex_pairs'] + params['num_real']):
             raise ValueError("Error, num_evals must equal 2*num_compex_pairs + num_real")
-        if 'hidden_widths_omega' not in params:
-            raise KeyError("Error, must give hidden_widths for omega net")
-        params['widths_omega_complex'] = [1, ] + params['hidden_widths_omega'] + [2, ]
-        params['widths_omega_real'] = [1, ] + params['hidden_widths_omega'] + [1, ]
-        print params['widths_omega_complex']
-        print params['widths_omega_real']
-        if isinstance(params['dist_weights_omega'], basestring):
-            params['dist_weights_omega'] = [params['dist_weights_omega']] * (len(params['widths_omega_real']) - 1)
-        if isinstance(params['dist_biases_omega'], int):
-            params['dist_biases_omega'] = [params['dist_biases_omega']] * (len(params['widths_omega_real']) - 1)
+        if not params['fixed_L']:
+            # if L is not fixed, have auxiliary network
+            if 'hidden_widths_omega' not in params:
+                raise KeyError("Error, must give hidden_widths for omega net")
+            params['widths_omega_complex'] = [1, ] + params['hidden_widths_omega'] + [2, ]
+            params['widths_omega_real'] = [1, ] + params['hidden_widths_omega'] + [1, ]
+            print params['widths_omega_complex']
+            print params['widths_omega_real']
+
+            if 'dist_weights_omega' not in params:
+                params['dist_weights_omega'] = 'tn'
+            if 'dist_biases_omega' not in params:
+                params['dist_biases_omega'] = 0
+            if isinstance(params['dist_weights_omega'], basestring):
+                params['dist_weights_omega'] = [params['dist_weights_omega']] * (len(params['widths_omega_real']) - 1)
+            if isinstance(params['dist_biases_omega'], int):
+                params['dist_biases_omega'] = [params['dist_biases_omega']] * (len(params['widths_omega_real']) - 1)
 
     return params
 
