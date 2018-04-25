@@ -1,7 +1,7 @@
 clear all; close all; clc
 % Read and process data from Deep Learning Algorithm for Koopman
 
-runs = 356;
+runs = 1000;
 not_found = zeros(1,11);
 almost_not_found = zeros(1,11);
 num_not_found = zeros(1,runs);
@@ -13,7 +13,7 @@ for file_num = 0:runs-1
 
     % Inputs and load .mat file
     n_IC = 10; % Number of initial conditions
-    folder_name = 'exp10';  % Experiment folder
+    folder_name = 'exp10b';  % Experiment folder
     file_prefix = strcat('./',folder_name,'/Heat_Eqn_',folder_name,'_',num2str(file_num),'_'); % Prefix for file names
     load(strcat(file_prefix,'model.mat')) % Load the model parameters
     n_x = widths(1); % Number of spatial grid points
@@ -127,14 +127,14 @@ end
 
 cd ../../Koopman_Updates/April11_2018/Figures/
 
-
+%%
 figure(1)
 bar(1:11,not_found/runs)
 title('Not found','Fontsize',16)
 xticklabels({'1','2','3','4','5','6','7','8','9','10','other'})
 xlabel('Wavenumber','Fontsize',16)
 ylabel('Probability','Fontsize',16)
-print(gcf, '-dpdf', 'Exp10_Histo_NotFound.pdf');
+%print(gcf, '-dpdf', 'Exp10b_Histo_NotFound.pdf');
 
 figure(2)
 bar(1:11,almost_not_found/runs)
@@ -142,7 +142,7 @@ title('Almost not found (<3)','Fontsize',16)
 xticklabels({'1','2','3','4','5','6','7','8','9','10','other'})
 xlabel('Wavenumber','Fontsize',16)
 ylabel('Probability','Fontsize',16)
-print(gcf, '-dpdf', 'Exp10_Histo_AlmNotFound.pdf');
+%print(gcf, '-dpdf', 'Exp10b_Histo_AlmNotFound.pdf');
 
 M = max(num_not_found);
 edges2 = -0.5:1:M+.5;
@@ -151,19 +151,28 @@ figure(3)
 bar(0:M,N/runs)
 xlabel('Number of modes not found','Fontsize',16)
 ylabel('Probability','Fontsize',16)
-print(gcf, '-dpdf', 'Exp10_Histo_NumNotFound.pdf');
+%print(gcf, '-dpdf', 'Exp10b_Histo_NumNotFound.pdf');
 
 figure(4)
 imagesc(which_not_found)
 xlabel('Wavenumber','Fontsize',16)
 ylabel('Run','Fontsize',16)
-print(gcf, '-dpdf', 'Exp10_WhichNotFound.pdf');
+%print(gcf, '-dpdf', 'Exp10b_WhichNotFound.pdf');
 
 cum_Conf_mat = cum_Conf_mat/runs;
 figure(5)
-imagesc(cum_Conf_Mat)
+imagesc(cum_Conf_mat)
 xlabel('Input','Fontsize',16)
 ylabel('Output','Fontsize',16)
 yticklabels({'1','2','3','4','5','6','7','8','9','10','other'})
-h = colorbar
-print(gcf, '-dpdf', 'Exp10_CumConfusion.pdf');
+h = colorbar;
+%print(gcf, '-dpdf', 'Exp10b_CumConfusion.pdf');
+
+d = diag(diag(cum_Conf_mat));
+off_diag = cum_Conf_mat - [d; zeros(1,10)];
+col_max = max(off_diag);
+m = max(col_max);
+caxis([0 1.2*m])
+%print(gcf, '-dpdf', 'Exp10b_CumConfusion2.pdf');
+
+
