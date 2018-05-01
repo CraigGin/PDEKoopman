@@ -264,7 +264,8 @@ def create_koopman_net(phase, keep_prob, params):
             weights.update(weights_omega)
             biases.update(biases_omega)
         else:
-            L = weight_variable([k, k], var_name='L') # no distribution, scale, first_guess
+            L = weight_variable([k, k], var_name='L', distribution=params['dist_L'], scale=params['scale_L'],
+                                first_guess=params['first_guess_L'])
             weights['L'] = L
 
     num_widths = len(params['widths'])
