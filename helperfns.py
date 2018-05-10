@@ -415,7 +415,14 @@ def set_defaults(params):
             raise KeyError("Error, must give number of pairs of complex eigenvalues: num_complex_pairs")
         if params['num_evals'] != (2 * params['num_complex_pairs'] + params['num_real']):
             raise ValueError("Error, num_evals must equal 2*num_compex_pairs + num_real")
-        if not params['fixed_L']:
+        if params['fixed_L']:
+            if 'dist_L' not in params:
+                params['dist_L'] = 'tn'
+            if 'scale_L' not in params:
+                params['scale_L'] = 0.1
+            if 'first_guess_L' not in params:
+                params['first_guess_L'] = 0
+        else:
             # if L is not fixed, have auxiliary network
             if 'hidden_widths_omega' not in params:
                 raise KeyError("Error, must give hidden_widths for omega net")
