@@ -129,6 +129,8 @@ def try_net(data_val, params):
     trainable_var = tf.trainable_variables()
     loss1, loss2, loss3, loss_Linf, loss = define_loss(x, y, g_list, weights, biases, params, phase, keep_prob)
     loss_L1, loss_L2, regularized_loss, regularized_loss1 = define_regularization(params, trainable_var, loss, loss1)
+    losses = {'loss1': loss1, 'loss2': loss2, 'loss3': loss3, 'loss_Linf': loss_Linf, 'loss': loss,
+              'loss_L1': loss_L1, 'loss_L2': loss_L2, 'regularized_loss': regularized_loss, 'regularized_loss1': regularized_loss1}
 
     # CHOOSE OPTIMIZATION ALGORITHM
     optimizer = helperfns.choose_optimizer(params, regularized_loss, trainable_var)
@@ -176,7 +178,6 @@ def try_net(data_val, params):
             data_train_tensor = helperfns.stack_data(data_train, max_shifts_to_stack, params['len_time'])
             num_examples = data_train_tensor.shape[1]
             num_batches = int(np.floor(num_examples / params['batch_size']))
-
         ind = np.arange(num_examples)
         np.random.shuffle(ind)
         data_train_tensor = data_train_tensor[:, ind, :]
@@ -188,7 +189,6 @@ def try_net(data_val, params):
                 offset = (step * params['batch_size']) % (num_examples - params['batch_size'])
             else:
                 offset = 0
-
             batch_data_train = data_train_tensor[:, offset:(offset + params['batch_size']), :]
             if params['denoising']:
                 batch_data_train_noisy = helperfns.add_noise(batch_data_train, params['denoising'],
@@ -207,37 +207,39 @@ def try_net(data_val, params):
                 sess.run(optimizer, feed_dict=feed_dict_train)
 
             if step % 20 == 0:
-                train_error = sess.run(loss, feed_dict=feed_dict_train_loss)
-                val_error = sess.run(loss, feed_dict=feed_dict_val)
+		# saves time to bunch operations with one run command (per feed_dict)
+                train_errors_dict = sess.run(losses, feed_dict=feed_dict_train_loss)
+                val_errors_dict = sess.run(losses, feed_dict=feed_dict_val)
+		val_error = val_errors_dict['loss']
 
                 if val_error < (best_error - best_error * (10 ** (-5))):
                     best_error = val_error.copy()
                     saver.save(sess, params['model_path'])
-                    reg_train_err = sess.run(regularized_loss, feed_dict=feed_dict_train_loss)
-                    reg_val_err = sess.run(regularized_loss, feed_dict=feed_dict_val)
+                    reg_train_err = train_errors_dict['regularized_loss']
+                    reg_val_err = val_errors_dict['regularized_loss']
                     print("New best val error %f (with reg. train err %f and reg. val err %f)" % (
                         best_error, reg_train_err, reg_val_err))
 
-                train_val_error[count, 0] = train_error
+                train_val_error[count, 0] = train_errors_dict['loss']
                 train_val_error[count, 1] = val_error
-                train_val_error[count, 2] = sess.run(regularized_loss, feed_dict=feed_dict_train_loss)
-                train_val_error[count, 3] = sess.run(regularized_loss, feed_dict=feed_dict_val)
-                train_val_error[count, 4] = sess.run(loss1, feed_dict=feed_dict_train_loss)
-                train_val_error[count, 5] = sess.run(loss1, feed_dict=feed_dict_val)
-                train_val_error[count, 6] = sess.run(loss2, feed_dict=feed_dict_train_loss)
-                train_val_error[count, 7] = sess.run(loss2, feed_dict=feed_dict_val)
-                train_val_error[count, 8] = sess.run(loss3, feed_dict=feed_dict_train_loss)
-                train_val_error[count, 9] = sess.run(loss3, feed_dict=feed_dict_val)
-                train_val_error[count, 10] = sess.run(loss_Linf, feed_dict=feed_dict_train_loss)
-                train_val_error[count, 11] = sess.run(loss_Linf, feed_dict=feed_dict_val)
+                train_val_error[count, 2] = train_errors_dict['regularized_loss']
+                train_val_error[count, 3] = val_errors_dict['regularized_loss']
+                train_val_error[count, 4] = train_errors_dict['loss1']
+                train_val_error[count, 5] = val_errors_dict['loss1']
+                train_val_error[count, 6] = train_errors_dict['loss2']
+                train_val_error[count, 7] = val_errors_dict['loss2']
+                train_val_error[count, 8] = train_errors_dict['loss3']
+                train_val_error[count, 9] = val_errors_dict['loss3']
+                train_val_error[count, 10] = train_errors_dict['loss_Linf']
+                train_val_error[count, 11] = val_errors_dict['loss_Linf']
                 if np.isnan(train_val_error[count, 10]):
                     params['stop_condition'] = 'loss_Linf is nan'
                     finished = 1
                     break
-                train_val_error[count, 12] = sess.run(loss_L1, feed_dict=feed_dict_train_loss)
-                train_val_error[count, 13] = sess.run(loss_L1, feed_dict=feed_dict_val)
-                train_val_error[count, 14] = sess.run(loss_L2, feed_dict=feed_dict_train_loss)
-                train_val_error[count, 15] = sess.run(loss_L2, feed_dict=feed_dict_val)
+                train_val_error[count, 12] = train_errors_dict['loss_L1']
+                train_val_error[count, 13] = val_errors_dict['loss_L1']
+                train_val_error[count, 14] = train_errors_dict['loss_L2']
+                train_val_error[count, 15] = val_errors_dict['loss_L2']
 
                 np.savetxt(csv_path, train_val_error, delimiter=',')
                 finished, save_now = helperfns.check_progress(start, best_error, params)
