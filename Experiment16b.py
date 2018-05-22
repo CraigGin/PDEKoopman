@@ -61,6 +61,6 @@ params['num_steps_per_file_pass'] = (int(steps_to_see_all) + 1) * params['num_st
 
 for count in range(200):
     # only randomized part is learning_rate
-    params['learning_rate'] = 10**(-r.uniform(4,2))
+    params['learning_rate'] = 10**(-r.uniform(2,4))
 
     training.main_exp(copy.deepcopy(params))
