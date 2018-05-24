@@ -3,8 +3,7 @@ clear all; close all; clc
 % All data comes from solutions to the Heat Equation. 
 % Training data:
 %   Initial conditions:
-%       400 random linear combinations of the first 50 sine modes
-%       (normalized)
+%       The first 50 sine modes - amplitude 1
 %   Solve from t = 0 to 0.04 in steps of 0.01
 %   Diffusion coefficient is D = 1
 %   128 spatial points in [-pi,pi)
@@ -16,9 +15,9 @@ clear all; close all; clc
 D = 1; % Diffusion coefficient
 L = 2*pi; % Length of domain
 n = 128; % Number of grid points
-T = 0.04;  % End time
-n_time = 5; % Number of time steps
-n_IC = 400; % number of initial conditions
+T = 0.39;  % End time
+n_time = 40; % Number of time steps
+n_IC = 50; % number of initial conditions
 exp_num = 'exp18';
 data_set = 'train1_x';
 % Specify training data, validation data, or testing data in file name
@@ -34,12 +33,8 @@ t = linspace(0,T,n_time);
 
 % Set Initial Conditions
 u_0 = zeros(n_IC,n);
-rng(1);
 for j = 1:n_IC
-    r = randn(1,50);
-    for k = 1:50
-        u_0(j,:) = u_0(j,:) + r(k)*sin(k*x);
-    end 
+    u_0(j,:) = sin(j*x);
 end
 
 % Solve Heat Equation
@@ -58,9 +53,9 @@ clear all; close all; clc
 D = 1; % Diffusion coefficient
 L = 2*pi; % Length of domain
 n = 128; % Number of grid points
-T = 0.04;  % End time
-n_time = 5; % Number of time steps
-n_IC = 100; % number of initial conditions
+T = 0.39;  % End time
+n_time = 40; % Number of time steps
+n_IC = 10; % number of initial conditions
 exp_num = 'exp18';
 data_set = 'val_x';
 % Specify training data, validation data, or testing data in file name
