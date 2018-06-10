@@ -10,7 +10,7 @@ params['act_type'] = 'linear'
 params['data_name'] = 'Heat_Eqn_exp25'  ## FILL IN HERE (from file name)
 params['folder_name'] = 'exp25' # UPDATE so goes in own folder
 
-params['relative_loss'] = 1
+params['relative_loss'] = 0
 params['auto_first'] = 1
 params['fixed_L'] = 1
 params['dist_weights'] = 'dl'
@@ -26,7 +26,7 @@ params['len_time'] = 50  ## CHECK THIS (number of time steps)
 params['num_shifts'] = 3
 params['delta_t'] = 0.0025  ## FILL IN HERE: your time step
 
-params['max_time'] =  4 * 60 * 60 # this means each experiment will run up to 1 hr
+params['max_time'] =  12 * 60 * 60 # this means each experiment will run up to 1 hr
 params['num_passes_per_file'] = 15 * 6 * 10 * 50 # may be limiting factor
 params['num_steps_per_batch'] = 2
 
@@ -44,11 +44,12 @@ params['min_40min'] = 10
 params['min_1hr'] = 10
 params['min_2hr'] = 10
 params['min_3hr'] = 10
+params['min_4hr'] = 10
 params['min_halfway'] = 10 # 1 hours
 
 params['Linf_lam'] = 10 ** (-8)
 params['L2_lam'] = 10**(-13.5)
-w = 10
+w = params['num_evals']
 params['widths'] = [n, w, l, l, w, n]
 
 params['num_shifts_middle'] =  params['len_time']-1
