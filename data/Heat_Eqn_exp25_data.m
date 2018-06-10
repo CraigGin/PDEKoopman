@@ -11,7 +11,7 @@ clear all; close all; clc
 % Validation data:
 %    same structure as training data but with 400 random lin combos
 %
-
+rng(1);
 for train_num = 1:20
 
 
@@ -39,7 +39,7 @@ t = linspace(0,T,n_time);
 % Set Initial Conditions
 u_0 = zeros(n_IC,n);
 
-rng(1);
+
 for j = 1:n_IC
     ut = zeros(1,n);
     ut(1) = randn;
