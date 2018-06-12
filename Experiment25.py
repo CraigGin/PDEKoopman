@@ -10,7 +10,7 @@ params['act_type'] = 'linear'
 params['data_name'] = 'Heat_Eqn_exp25'  ## FILL IN HERE (from file name)
 params['folder_name'] = 'exp25' # UPDATE so goes in own folder
 
-params['relative_loss'] = 0
+params['relative_loss'] = 1
 params['auto_first'] = 1
 params['fixed_L'] = 1
 params['dist_weights'] = 'dl'
@@ -44,8 +44,8 @@ params['min_40min'] = 10
 params['min_1hr'] = 10
 params['min_2hr'] = 10
 params['min_3hr'] = 10
-params['min_4hr'] = 10
-params['min_halfway'] = 10 # 1 hours
+params['min_4hr'] = 2
+params['min_halfway'] = 1.5 # 1 hours
 
 params['Linf_lam'] = 10 ** (-8)
 params['L2_lam'] = 10**(-13.5)
