@@ -1,5 +1,5 @@
 *.ckpt*
-*.csv
+exp*/
 *.mat
 *.pkl
 *.pyc
