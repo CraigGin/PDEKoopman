@@ -221,6 +221,9 @@ def set_defaults(params):
     if 'fixed_L' not in params:
         # default is that L does not vary
         params['fixed_L'] = 0
+    if 'diag_L' not in params:
+	# default is that L is not forced to be diagonal
+        params['diag_L'] = 0
     if 'rel_noise_flag' not in params:
         params['rel_noise_flag'] = 0
     if 'auto_first' not in params:
