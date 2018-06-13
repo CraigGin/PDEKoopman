@@ -3,3 +3,4 @@
 *.mat
 *.pkl
 *.pyc
+exp*/*
