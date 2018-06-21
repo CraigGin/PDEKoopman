@@ -155,7 +155,7 @@ def try_net(data_val, params):
     count = 0
     best_error = 10000
 
-    data_val_tensor = helperfns.stack_data(data_val, max_shifts_to_stack, params['len_time'])
+    data_val_tensor = helperfns.stack_data(data_val, max_shifts_to_stack, params['val_len_time'])
     if params['denoising']:
         data_val_tensor_noisy = helperfns.add_noise(data_val_tensor, params['denoising'], params['rel_noise_flag'])
     else:
@@ -176,7 +176,7 @@ def try_net(data_val, params):
             # don't keep reloading data if always same
             data_train = np.loadtxt(('./data/%s_train%d_x.csv' % (params['data_name'], file_num)), delimiter=',',
                                     dtype=np.float64)
-            data_train_tensor = helperfns.stack_data(data_train, max_shifts_to_stack, params['len_time'])
+            data_train_tensor = helperfns.stack_data(data_train, max_shifts_to_stack, params['train_len_time'][file_num])
             num_examples = data_train_tensor.shape[1]
             num_batches = int(np.floor(num_examples / params['batch_size']))
         ind = np.arange(num_examples)
