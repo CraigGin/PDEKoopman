@@ -265,10 +265,10 @@ def create_koopman_net(phase, keep_prob, params):
             biases.update(biases_omega)
         else:
             if not params['diag_L']:
-	        L = weight_variable([k, k], var_name='L', distribution=params['dist_L'], scale=params['scale_L'],
-        	                        first_guess=params['first_guess_L'])
+                L = weight_variable([k, k], var_name='L', distribution=params['dist_L'], scale=params['scale_L'],
+                                    first_guess=params['first_guess_L'])
             else:
-	        diag = weight_variable([k, ], var_name='diag_L', distribution=params['dist_L'], scale=params['scale_L'],
+                diag = weight_variable([k, ], var_name='diag_L', distribution=params['dist_L'], scale=params['scale_L'],
                                        first_guess=params['first_guess_L'])
                 L = tf.diag(diag)
             weights['L'] = L
