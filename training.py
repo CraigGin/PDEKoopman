@@ -130,7 +130,8 @@ def try_net(data_val, params):
     loss1, loss2, loss3, loss_Linf, loss = define_loss(x, y, g_list, weights, biases, params, phase, keep_prob)
     loss_L1, loss_L2, regularized_loss, regularized_loss1 = define_regularization(params, trainable_var, loss, loss1)
     losses = {'loss1': loss1, 'loss2': loss2, 'loss3': loss3, 'loss_Linf': loss_Linf, 'loss': loss,
-              'loss_L1': loss_L1, 'loss_L2': loss_L2, 'regularized_loss': regularized_loss, 'regularized_loss1': regularized_loss1}
+              'loss_L1': loss_L1, 'loss_L2': loss_L2, 'regularized_loss': regularized_loss,
+              'regularized_loss1': regularized_loss1}
 
     # CHOOSE OPTIMIZATION ALGORITHM
     optimizer = helperfns.choose_optimizer(params, regularized_loss, trainable_var)
@@ -154,7 +155,7 @@ def try_net(data_val, params):
     count = 0
     best_error = 10000
 
-    data_val_tensor = helperfns.stack_data(data_val, max_shifts_to_stack, params['len_time'])
+    data_val_tensor = helperfns.stack_data(data_val, max_shifts_to_stack, params['val_len_time'])
     if params['denoising']:
         data_val_tensor_noisy = helperfns.add_noise(data_val_tensor, params['denoising'], params['rel_noise_flag'])
     else:
@@ -175,7 +176,7 @@ def try_net(data_val, params):
             # don't keep reloading data if always same
             data_train = np.loadtxt(('./data/%s_train%d_x.csv' % (params['data_name'], file_num)), delimiter=',',
                                     dtype=np.float64)
-            data_train_tensor = helperfns.stack_data(data_train, max_shifts_to_stack, params['len_time'])
+            data_train_tensor = helperfns.stack_data(data_train, max_shifts_to_stack, params['train_len_time'][file_num-1])
             num_examples = data_train_tensor.shape[1]
             num_batches = int(np.floor(num_examples / params['batch_size']))
         ind = np.arange(num_examples)
@@ -207,10 +208,10 @@ def try_net(data_val, params):
                 sess.run(optimizer, feed_dict=feed_dict_train)
 
             if step % 20 == 0:
-		# saves time to bunch operations with one run command (per feed_dict)
+                # saves time to bunch operations with one run command (per feed_dict)
                 train_errors_dict = sess.run(losses, feed_dict=feed_dict_train_loss)
                 val_errors_dict = sess.run(losses, feed_dict=feed_dict_val)
-		val_error = val_errors_dict['loss']
+                val_error = val_errors_dict['loss']
 
                 if val_error < (best_error - best_error * (10 ** (-5))):
                     best_error = val_error.copy()
@@ -242,8 +243,8 @@ def try_net(data_val, params):
                 train_val_error[count, 15] = val_errors_dict['loss_L2']
 
                 if step % 200 == 0:
-			train_val_error_trunc = train_val_error[range(count), :]
-	                np.savetxt(csv_path, train_val_error_trunc, delimiter=',')
+                    train_val_error_trunc = train_val_error[range(count), :]
+                    np.savetxt(csv_path, train_val_error_trunc, delimiter=',')
                 finished, save_now = helperfns.check_progress(start, best_error, params)
                 if save_now:
                     train_val_error_trunc = train_val_error[range(count), :]

@@ -222,7 +222,7 @@ def set_defaults(params):
         # default is that L does not vary
         params['fixed_L'] = 0
     if 'diag_L' not in params:
-	# default is that L is not forced to be diagonal
+        # default is that L is not forced to be diagonal
         params['diag_L'] = 0
     if 'rel_noise_flag' not in params:
         params['rel_noise_flag'] = 0
@@ -281,8 +281,23 @@ def set_defaults(params):
         params['decay_rate'] = 0
     if 'batch_size' not in params:
         params['batch_size'] = 0
-    if 'len_time' not in params:
-        raise KeyError("Error, must give len_time as input to main")
+    if 'data_train_len' not in params:
+        # default is that there's one training set
+        params['data_train_len'] = 1
+    if 'val_len_time' not in params:
+        if 'len_time' in params:
+            # if have more general len_time copy that over to len_time for validation set
+            params['val_len_time'] = params['len_time']
+        else:
+            raise KeyError("Error, must give val_len_time or len_time as input to main")
+    if 'train_len_time' not in params:
+        if 'len_time' in params:
+            # if have more general len_time copy that over to len_time for training set
+            params['train_len_time'] = params['len_time']
+        else:
+            raise KeyError("Error, must give train_len_time or len_time as input to main")
+    if isinstance(params['train_len_time'], int):
+        params['train_len_time'] = [params['train_len_time']] * params['data_train_len']
     if 'max_time' not in params:
         params['max_time'] = 0
     if 'L2_lam' not in params:
