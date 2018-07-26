@@ -257,10 +257,17 @@ def set_defaults(params):
         params['learning_rate'] = .003
     if 'd' not in params:
         params['d'] = len(params['widths'])
+    params['depth'] = (params['d'] - 4) / 2  # i.e. 10 or 12 -> 3 or 4
+    params['num_encoder_weights'] = params['depth'] + 1
+    params['num_decoder_weights'] = params['depth'] + 1
     if 'act_type' not in params:
         params['act_type'] = 'relu'
-    if 'mid_act_type' not in params:
-        params['mid_act_type'] = params['act_type']
+    if 'linear_encoder_layers' not in params:
+        # default is that only last layer is linear
+        params['linear_encoder_layers'] = [params['num_encoder_weights'] - 1, ]
+    if 'linear_decoder_layers' not in params:
+        # default is that only last layer is linear
+        params['linear_decoder_layers'] = [params['num_decoder_weights'] - 1, ]
     if 'folder_name' not in params:
         params['folder_name'] = 'results'
     if 'L1_lam' not in params:
@@ -449,6 +456,11 @@ def set_defaults(params):
             print params['widths_omega_complex']
             print params['widths_omega_real']
 
+            params['num_omega_weights'] = len(params['widths_omega_real']) - 1
+            if 'linear_omega_layers' not in params:
+                # default is that only last layer is linear
+                params['linear_omega_layers'] = [params['num_omega_weights'] - 1, ]
+
             if 'dist_weights_omega' not in params:
                 params['dist_weights_omega'] = 'tn'
             if 'dist_biases_omega' not in params:
@@ -469,3 +481,12 @@ def num_shifts_in_stack(params):
         max_shifts_to_stack = max(max_shifts_to_stack, max(params['shifts_middle']))
 
     return max_shifts_to_stack
+
+def apply_act_fn(h1, act_type):
+    if act_type == 'sigmoid':
+        h1 = tf.sigmoid(h1)
+    elif act_type == 'relu':
+        h1 = tf.nn.relu(h1)
+    elif act_type == 'elu':
+        h1 = tf.nn.elu(h1)
+    return h1
