@@ -59,7 +59,7 @@ def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_gues
     return x, x_noisy, weights, biases
 
 
-def encoder_apply(x, weights, biases, act_type, batch_flag, phase, out_flag, shifts_middle, keep_prob, name='E',
+def encoder_apply(x, weights, biases, act_type, batch_flag, phase, out_flag, shifts_middle, keep_prob, linear_encoder_layers, name='E',
                   num_encoder_weights=1):
     y = []
     num_shifts_middle = len(shifts_middle)
@@ -73,32 +73,26 @@ def encoder_apply(x, weights, biases, act_type, batch_flag, phase, out_flag, shi
         else:
             x_shift = tf.squeeze(x[shift, :, :])
         y.append(
-            encoder_apply_one_shift(x_shift, weights, biases, act_type, batch_flag, phase, out_flag, keep_prob, name,
+            encoder_apply_one_shift(x_shift, weights, biases, act_type, batch_flag, phase, out_flag, keep_prob, linear_encoder_layers, name,
                                     num_encoder_weights))
     return y
 
 
-def encoder_apply_one_shift(prev_layer, weights, biases, act_type, batch_flag, phase, out_flag, keep_prob, name='E',
+def encoder_apply_one_shift(prev_layer, weights, biases, act_type, batch_flag, phase, out_flag, keep_prob,
+                            linear_encoder_layers, name='E',
                             num_encoder_weights=1):
-    for i in np.arange(num_encoder_weights - 1):
+    for i in np.arange(num_encoder_weights):
         h1 = tf.matmul(prev_layer, weights['W%s%d' % (name, i + 1)]) + biases['b%s%d' % (name, i + 1)]
         if batch_flag:
             h1 = tf.contrib.layers.batch_norm(h1, is_training=phase)
-        if act_type == 'sigmoid':
-            h1 = tf.sigmoid(h1)
-        elif act_type == 'relu':
-            h1 = tf.nn.relu(h1)
-        elif act_type == 'elu':
-            h1 = tf.nn.elu(h1)
+        if i not in linear_encoder_layers:
+            h1 = helperfns.apply_act_fn(h1, act_type)
         prev_layer = tf.cond(keep_prob < 1.0, lambda: tf.nn.dropout(h1, keep_prob), lambda: h1)
 
-    final = tf.matmul(prev_layer, weights['W%s%d' % (name, num_encoder_weights)]) + biases[
-        'b%s%d' % (name, num_encoder_weights)]
-
     if (not out_flag) and batch_flag:
-        final = tf.contrib.layers.batch_norm(final, is_training=phase)
+        prev_layer = tf.contrib.layers.batch_norm(prev_layer, is_training=phase)
 
-    return final
+    return prev_layer
 
 
 def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0):
@@ -114,20 +108,17 @@ def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0):
     return weights, biases
 
 
-def decoder_apply(prev_layer, weights, biases, act_type, batch_flag, phase, keep_prob, num_decoder_weights):
-    for i in np.arange(num_decoder_weights - 1):
+def decoder_apply(prev_layer, weights, biases, act_type, batch_flag, phase, keep_prob, num_decoder_weights,
+                  linear_decoder_layers):
+    for i in np.arange(num_decoder_weights):
         h1 = tf.matmul(prev_layer, weights['WD%d' % (i + 1)]) + biases['bD%d' % (i + 1)]
         if batch_flag:
             h1 = tf.contrib.layers.batch_norm(h1, is_training=phase)
-        if act_type == 'sigmoid':
-            h1 = tf.sigmoid(h1)
-        elif act_type == 'relu':
-            h1 = tf.nn.relu(h1)
-        elif act_type == 'elu':
-            h1 = tf.nn.elu(h1)
+        if i not in linear_decoder_layers:
+            h1 = helperfns.apply_act_fn(h1, act_type)
         prev_layer = tf.cond(keep_prob < 1.0, lambda: tf.nn.dropout(h1, keep_prob), lambda: h1)
 
-    return tf.matmul(prev_layer, weights['WD%d' % num_decoder_weights]) + biases['bD%d' % num_decoder_weights]
+    return prev_layer
 
 
 def form_complex_conjugate_block(omegas, delta_t):
@@ -192,8 +183,6 @@ def create_omega_net(phase, keep_prob, params, ycoords):
         temp_name = 'OR%d_' % (j + 1)
         create_one_omega_net(params, temp_name, weights, biases, params['widths_omega_real'])
 
-    params['num_omega_weights'] = len(params['widths_omega_real']) - 1
-
     omegas = omega_net_apply(phase, keep_prob, params, ycoords, weights, biases)
 
     return omegas, weights, biases
@@ -235,25 +224,24 @@ def omega_net_apply_one(phase, keep_prob, params, ycoords, weights, biases, name
         input = ycoords
 
     omegas = encoder_apply_one_shift(input, weights, biases, params['act_type'], params['batch_flag'], phase,
-                                     out_flag=0, keep_prob=keep_prob, name=name,
+                                     out_flag=0, keep_prob=keep_prob, linear_encoder_layers=params['linear_omega_layers'], name=name,
                                      num_encoder_weights=params['num_omega_weights'])
 
     return omegas
 
 
 def create_koopman_net(phase, keep_prob, params):
-    depth = (params['d'] - 4) / 2  # i.e. 10 or 12 -> 3 or 4
-
     max_shifts_to_stack = helperfns.num_shifts_in_stack(params)
 
-    k = params['widths'][depth + 1]
-    encoder_widths = params['widths'][0:depth + 2]  # n ... k
-    x, x_noisy, weights, biases = encoder(encoder_widths, dist_weights=params['dist_weights'][0:depth + 1],
-                                          dist_biases=params['dist_biases'][0:depth + 1], scale=params['scale'],
+    k = params['widths'][params['depth'] + 1]
+    encoder_widths = params['widths'][0:params['depth'] + 2]  # n ... k
+    x, x_noisy, weights, biases = encoder(encoder_widths, dist_weights=params['dist_weights'][0:params['depth'] + 1],
+                                          dist_biases=params['dist_biases'][0:params['depth'] + 1],
+                                          scale=params['scale'],
                                           num_shifts_max=max_shifts_to_stack, first_guess=params['first_guess'])
-    params['num_encoder_weights'] = len(weights)
+
     g_list = encoder_apply(x_noisy, weights, biases, params['act_type'], params['batch_flag'], phase, out_flag=0,
-                           shifts_middle=params['shifts_middle'], keep_prob=keep_prob,
+                           shifts_middle=params['shifts_middle'], keep_prob=keep_prob, linear_encoder_layers=params['linear_encoder_layers'],
                            num_encoder_weights=params['num_encoder_weights'])
 
     if not params['autoencoder_only']:
@@ -274,18 +262,19 @@ def create_koopman_net(phase, keep_prob, params):
             weights['L'] = L
 
     num_widths = len(params['widths'])
-    decoder_widths = params['widths'][depth + 2:num_widths]  # k ... n
-    weights_decoder, biases_decoder = decoder(decoder_widths, dist_weights=params['dist_weights'][depth + 2:],
-                                              dist_biases=params['dist_biases'][depth + 2:], scale=params['scale'])
+    decoder_widths = params['widths'][params['depth'] + 2:num_widths]  # k ... n
+    weights_decoder, biases_decoder = decoder(decoder_widths, dist_weights=params['dist_weights'][params['depth'] + 2:],
+                                              dist_biases=params['dist_biases'][params['depth'] + 2:],
+                                              scale=params['scale'])
     weights.update(weights_decoder)
     biases.update(biases_decoder)
 
     y = []
     # y[0] is x[0,:,:] encoded and then decoded (no stepping forward)
     encoded_layer = g_list[0]
-    params['num_decoder_weights'] = depth + 1
+
     y.append(decoder_apply(encoded_layer, weights, biases, params['act_type'], params['batch_flag'], phase, keep_prob,
-                           params['num_decoder_weights']))
+                           params['num_decoder_weights'], params['linear_decoder_layers']))
 
     if not params['autoencoder_only']:
         # g_list_omega[0] is for x[0,:,:], pairs with g_list[0]=encoded_layer
@@ -299,7 +288,7 @@ def create_koopman_net(phase, keep_prob, params):
             # considering penalty on subset of yk+1, yk+2, yk+3, ... yk+20
             if (j + 1) in params['shifts']:
                 y.append(decoder_apply(advanced_layer, weights, biases, params['act_type'], params['batch_flag'], phase,
-                                       keep_prob, params['num_decoder_weights']))
+                                       keep_prob, params['num_decoder_weights'], params['linear_decoder_layers']))
 
             if params['fixed_L']:
                 advanced_layer = tf.matmul(advanced_layer, weights['L'])
