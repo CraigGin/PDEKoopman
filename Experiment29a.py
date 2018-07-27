@@ -7,7 +7,7 @@ import training
 
 params = {}
 params['act_type'] = 'relu'
-params['data_name'] = 'Heat_Eqn_exp29'  ## FILL IN HERE (from file name)
+params['data_name'] = 'Heat_Eqn_exp28'  ## FILL IN HERE (from file name)
 params['folder_name'] = 'exp29a' # UPDATE so goes in own folder
 
 params['relative_loss'] = 1
