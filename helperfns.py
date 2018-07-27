@@ -265,9 +265,11 @@ def set_defaults(params):
     if 'linear_encoder_layers' not in params:
         # default is that only last layer is linear
         params['linear_encoder_layers'] = [params['num_encoder_weights'] - 1, ]
+	print(params['linear_encoder_layers'])
     if 'linear_decoder_layers' not in params:
         # default is that only last layer is linear
         params['linear_decoder_layers'] = [params['num_decoder_weights'] - 1, ]
+	print(params['linear_decoder_layers'])
     if 'folder_name' not in params:
         params['folder_name'] = 'results'
     if 'L1_lam' not in params:
@@ -460,6 +462,7 @@ def set_defaults(params):
             if 'linear_omega_layers' not in params:
                 # default is that only last layer is linear
                 params['linear_omega_layers'] = [params['num_omega_weights'] - 1, ]
+		print(params['linear_omega_layers'])
 
             if 'dist_weights_omega' not in params:
                 params['dist_weights_omega'] = 'tn'

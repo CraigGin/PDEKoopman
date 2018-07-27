@@ -274,7 +274,7 @@ def create_koopman_net(phase, keep_prob, params):
     encoded_layer = g_list[0]
 
     y.append(decoder_apply(encoded_layer, weights, biases, params['act_type'], params['batch_flag'], phase, keep_prob,
-                           params['num_decoder_weights']), params['linear_decoder_layers'])
+                           params['num_decoder_weights'], params['linear_decoder_layers']))
 
     if not params['autoencoder_only']:
         # g_list_omega[0] is for x[0,:,:], pairs with g_list[0]=encoded_layer
@@ -288,7 +288,7 @@ def create_koopman_net(phase, keep_prob, params):
             # considering penalty on subset of yk+1, yk+2, yk+3, ... yk+20
             if (j + 1) in params['shifts']:
                 y.append(decoder_apply(advanced_layer, weights, biases, params['act_type'], params['batch_flag'], phase,
-                                       keep_prob, params['num_decoder_weights']), params['linear_decoder_layers'])
+                                       keep_prob, params['num_decoder_weights'], params['linear_decoder_layers']))
 
             if params['fixed_L']:
                 advanced_layer = tf.matmul(advanced_layer, weights['L'])
