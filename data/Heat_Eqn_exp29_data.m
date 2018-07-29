@@ -1,5 +1,5 @@
 clear all; close all; clc
-% Create data sets for Experiment 28
+% Create data sets for Experiment 29
 % All data comes from solutions to the Heat Equation. 
 % Training data:
 %   Initial conditions:
@@ -22,7 +22,7 @@ dt = 0.0025;
 n_time = 50; % Number of time steps
 T = dt*(n_time-1);  % End time
 n_IC = 400; % number of initial conditions
-exp_num = 'exp28';
+exp_num = 'exp29';
 data_set = ['train',num2str(train_num),'_x'];
 % Specify training data, validation data, or testing data in file name
 
@@ -85,7 +85,7 @@ dt = 0.0025;
 n_time = 50; % Number of time steps
 T = dt*(n_time-1);  % End time
 n_IC = 400; % number of initial conditions
-exp_num = 'exp28';
+exp_num = 'exp29';
 data_set = 'val_x';
 % Specify training data, validation data, or testing data in file name
 
