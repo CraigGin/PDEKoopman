@@ -286,7 +286,7 @@ def create_koopman_net(phase, keep_prob, params):
     # y[0] is x[0,:,:] encoded and then decoded (no stepping forward)
     encoded_layer = g_list[0]
 
-    y.append(decoder_apply(encoded_layer, weights, identity_weight_decoder, params['act_type'], params['batch_flag'], phase, keep_prob,
+    y.append(decoder_apply(encoded_layer, weights, biases, identity_weight_decoder, params['act_type'], params['batch_flag'], phase, keep_prob,
                            params['num_decoder_weights'], params['linear_decoder_layers']))
 
     if not params['autoencoder_only']:
