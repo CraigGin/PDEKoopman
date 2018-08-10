@@ -253,7 +253,7 @@ def create_koopman_net(phase, keep_prob, params):
                                           scale=params['scale'],
                                           num_shifts_max=max_shifts_to_stack, first_guess=params['first_guess'])
 
-    g_list = encoder_apply(x_noisy, weights, biases, identity_weight_encoder, identity_weight_encoder, params['act_type'], params['batch_flag'], phase, out_flag=0,
+    g_list = encoder_apply(x_noisy, weights, biases, identity_weight_encoder, params['act_type'], params['batch_flag'], phase, out_flag=0,
                            shifts_middle=params['shifts_middle'], keep_prob=keep_prob, linear_encoder_layers=params['linear_encoder_layers'],
                            num_encoder_weights=params['num_encoder_weights'])
 
