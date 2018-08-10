@@ -57,7 +57,7 @@ def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_gues
         biases['bE%d' % (i + 1)] = bias_variable([widths[i + 1], ], var_name='bE%d' % (i + 1),
                                                  distribution=dist_biases[i])
     # TODO: options for initial_value
-    identity_weight = tf.Variable(initial_value=0.1, name='alphaE')
+    identity_weight = tf.Variable(initial_value=0.1, name='alphaE', dtype=np.float64)
 
     return x, x_noisy, weights, biases, identity_weight
 
@@ -113,7 +113,7 @@ def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0):
                                                       distribution=dist_biases[ind - 1])
 
     # TODO: options for initial_value
-    identity_weight = tf.Variable(initial_value=0.1, name=('alpha%s' % name))
+    identity_weight = tf.Variable(initial_value=0.1, name=('alpha%s' % name), dtype=np.float64)
 
     return weights, biases, identity_weight
 
