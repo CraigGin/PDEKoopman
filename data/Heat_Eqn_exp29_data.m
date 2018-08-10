@@ -49,13 +49,9 @@ end
 
 % Solve Heat Equation
 Data = zeros(n_time*n_IC,n);
-X = zeros(n_time*(n_IC-1),n);
-X_prime = zeros(n_time*(n_IC-1),n);
 for k = 1:n_IC
     U = HeatEqn_FT(D,L,x,t,u_0(k,:)); % Periodic BC (FFT)
     Data(k*n_time-(n_time-1):k*n_time,:) = U;
-    X(k*(n_time-1)-(n_time-2):k*(n_time-1),:) = U(1:n_time-1,:);
-    X_prime(k*(n_time-1)-(n_time-2):k*(n_time-1),:) = U(2:n_time,:);
 end
 
 filename = strcat('Heat_Eqn_',exp_num,'_',data_set,'.csv');
@@ -84,7 +80,7 @@ n = 128; % Number of grid points
 dt = 0.0025;
 n_time = 50; % Number of time steps
 T = dt*(n_time-1);  % End time
-n_IC = 400; % number of initial conditions
+n_IC = 2000; % number of initial conditions
 exp_num = 'exp29';
 data_set = 'val_x';
 % Specify training data, validation data, or testing data in file name

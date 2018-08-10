@@ -27,7 +27,7 @@ params['len_time'] = 50  ## CHECK THIS (number of time steps)
 params['num_shifts'] = 3
 params['delta_t'] = 0.0025  ## FILL IN HERE: your time step
 
-params['max_time'] =  4 * 60 * 60 # this means each experiment will run up to 1 hr
+params['max_time'] =  12 * 60 * 60 # this means each experiment will run up to 1 hr
 params['num_passes_per_file'] = 15 * 6 * 10 * 50 # may be limiting factor
 params['num_steps_per_batch'] = 2
 
@@ -46,7 +46,7 @@ params['min_1hr'] = 2
 params['min_2hr'] = 1.5
 params['min_3hr'] = 1.4
 params['min_4hr'] = 1.2
-params['min_halfway'] = 1.5 # 1 hours
+params['min_halfway'] = 1.1 # 1 hours
 
 params['Linf_lam'] = 10 ** (-8)
 params['L2_lam'] = 10**(-13.5)
