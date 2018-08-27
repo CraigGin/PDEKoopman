@@ -41,7 +41,7 @@ def bias_variable(shape, var_name, distribution=''):
     return tf.Variable(initial, name=var_name)
 
 
-def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_guess):
+def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_guess, add_identity):
     x = tf.placeholder(tf.float64, [num_shifts_max + 1, None, widths[0]])
     x_noisy = tf.placeholder(tf.float64, [num_shifts_max + 1, None, widths[0]])
     # nx1 patch, number of input channels, number of output channels (features)
@@ -56,8 +56,10 @@ def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_gues
         # TODO: first guess for biases too (and different ones for different weights)
         biases['bE%d' % (i + 1)] = bias_variable([widths[i + 1], ], var_name='bE%d' % (i + 1),
                                                  distribution=dist_biases[i])
-    # TODO: options for initial_value
-    identity_weight = tf.Variable(initial_value=0.1, name='alphaE', dtype=np.float64)
+    if add_identity:
+        identity_weight = tf.Variable(initial_value=add_identity, name='alphaE', dtype=np.float64)
+    else:
+        identity_weight = 0
 
     return x, x_noisy, weights, biases, identity_weight
 
@@ -85,23 +87,18 @@ def encoder_apply_one_shift(x, weights, biases, identity_weight, act_type, batch
                             linear_encoder_layers, name='E',
                             num_encoder_weights=1):
     prev_layer = tf.identity(x)
-    for i in np.arange(num_encoder_weights):
-        h1 = tf.matmul(prev_layer, weights['W%s%d' % (name, i + 1)]) + biases['b%s%d' % (name, i + 1)]
-        if batch_flag:
-            h1 = tf.contrib.layers.batch_norm(h1, is_training=phase)
+    for i in np.arange(num_encoder_weights-1):
+        prev_layer = tf.matmul(prev_layer, weights['W%s%d' % (name, i + 1)]) + biases['b%s%d' % (name, i + 1)]
         if i not in linear_encoder_layers:
-            h1 = helperfns.apply_act_fn(h1, act_type)
-        prev_layer = tf.cond(keep_prob < 1.0, lambda: tf.nn.dropout(h1, keep_prob), lambda: h1)
+            prev_layer = helperfns.apply_act_fn(prev_layer, act_type)
 
     output = prev_layer + tf.scalar_mul(identity_weight, x)
-
-    if (not out_flag) and batch_flag:
-        output = tf.contrib.layers.batch_norm(output, is_training=phase)
+    output = tf.matmul(output, weights['W%s%d' % (name, num_encoder_weights)]) + biases['b%s%d' % (name, num_encoder_weights)]
 
     return output
 
 
-def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0):
+def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0, add_identity=0):
     weights = dict()
     biases = dict()
     for i in np.arange(len(widths) - 1):
@@ -112,8 +109,10 @@ def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0):
         biases['b%s%d' % (name, ind)] = bias_variable([widths[i + 1], ], var_name='b%s%d' % (name, ind),
                                                       distribution=dist_biases[ind - 1])
 
-    # TODO: options for initial_value
-    identity_weight = tf.Variable(initial_value=0.1, name=('alpha%s' % name), dtype=np.float64)
+    if add_identity:
+        identity_weight = tf.Variable(initial_value=add_identity, name=('alpha%s' % name), dtype=np.float64)
+    else:
+        identity_weight = 0
 
     return weights, biases, identity_weight
 
@@ -121,15 +120,15 @@ def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0):
 def decoder_apply(x, weights, biases, identity_weight, act_type, batch_flag, phase, keep_prob, num_decoder_weights,
                   linear_decoder_layers):
     prev_layer = tf.identity(x)
-    for i in np.arange(num_decoder_weights):
-        h1 = tf.matmul(prev_layer, weights['WD%d' % (i + 1)]) + biases['bD%d' % (i + 1)]
-        if batch_flag:
-            h1 = tf.contrib.layers.batch_norm(h1, is_training=phase)
+    for i in np.arange(num_decoder_weights-1):
+        prev_layer = tf.matmul(prev_layer, weights['WD%d' % (i + 1)]) + biases['bD%d' % (i + 1)]
         if i not in linear_decoder_layers:
-            h1 = helperfns.apply_act_fn(h1, act_type)
-        prev_layer = tf.cond(keep_prob < 1.0, lambda: tf.nn.dropout(h1, keep_prob), lambda: h1)
+            prev_layer = helperfns.apply_act_fn(prev_layer, act_type)
+        if i == 0:
+            full_width_input = tf.identity(prev_layer)
 
-    output = prev_layer + tf.scalar_mul(identity_weight, x)
+    output = tf.matmul(prev_layer, weights['WD%d' % num_decoder_weights]) + biases['bD%d' % num_decoder_weights]
+    output = output + tf.scalar_mul(identity_weight, full_width_input)
 
     return output
 
@@ -204,7 +203,7 @@ def create_omega_net(phase, keep_prob, params, ycoords):
 def create_one_omega_net(params, temp_name, weights, biases, widths):
     weightsO, biasesO = decoder(widths, dist_weights=params['dist_weights_omega'],
                                 dist_biases=params['dist_biases_omega'], scale=params['scale_omega'], name=temp_name,
-                                first_guess=params['first_guess_omega'])
+                                first_guess=params['first_guess_omega'], add_identity=params['add_identity'])
     weights.update(weightsO)
     biases.update(biasesO)
 
@@ -251,8 +250,9 @@ def create_koopman_net(phase, keep_prob, params):
     x, x_noisy, weights, biases, identity_weight_encoder = encoder(encoder_widths, dist_weights=params['dist_weights'][0:params['depth'] + 1],
                                           dist_biases=params['dist_biases'][0:params['depth'] + 1],
                                           scale=params['scale'],
-                                          num_shifts_max=max_shifts_to_stack, first_guess=params['first_guess'])
+                                          num_shifts_max=max_shifts_to_stack, first_guess=params['first_guess'], add_identity=params['add_identity'])
 
+    # returns list: encode each shift
     g_list = encoder_apply(x_noisy, weights, biases, identity_weight_encoder, params['act_type'], params['batch_flag'], phase, out_flag=0,
                            shifts_middle=params['shifts_middle'], keep_prob=keep_prob, linear_encoder_layers=params['linear_encoder_layers'],
                            num_encoder_weights=params['num_encoder_weights'])
@@ -278,7 +278,7 @@ def create_koopman_net(phase, keep_prob, params):
     decoder_widths = params['widths'][params['depth'] + 2:num_widths]  # k ... n
     weights_decoder, biases_decoder, identity_weight_decoder = decoder(decoder_widths, dist_weights=params['dist_weights'][params['depth'] + 2:],
                                               dist_biases=params['dist_biases'][params['depth'] + 2:],
-                                              scale=params['scale'])
+                                              scale=params['scale'], add_identity=params['add_identity'])
     weights.update(weights_decoder)
     biases.update(biases_decoder)
 
