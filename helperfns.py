@@ -218,6 +218,8 @@ def save_params(params):
 
 
 def set_defaults(params):
+    if 'add_identity' not in params:
+        params['add_identity'] = 0
     if 'fixed_L' not in params:
         # default is that L does not vary
         params['fixed_L'] = 0
