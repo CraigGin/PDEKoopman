@@ -201,6 +201,16 @@ def save_files(sess, saver, csv_path, train_val_error, params, weights, biases):
         np.savetxt(csv_path.replace('error', key), np.asarray(sess.run(value)), delimiter=',')
     for key, value in biases.iteritems():
         np.savetxt(csv_path.replace('error', key), np.asarray(sess.run(value)), delimiter=',')
+
+    graph = tf.get_default_graph()
+    alphaE = graph.get_tensor_by_name("alphaE:0")
+    alphaE_reshaped = np.asarray(sess.run(alphaE)).reshape((1,1))
+    np.savetxt(csv_path.replace('error', "alphaE"), alphaE_reshaped, delimiter=',')
+
+    alphaD = graph.get_tensor_by_name("alphaD:0")
+    alphaD_reshaped = np.asarray(sess.run(alphaD)).reshape((1,1))
+    np.savetxt(csv_path.replace('error', "alphaD"), alphaD_reshaped, delimiter=',')
+
     params['minTrain'] = np.min(train_val_error[:, 0])
     params['minTest'] = np.min(train_val_error[:, 1])
     params['minRegTrain'] = np.min(train_val_error[:, 2])

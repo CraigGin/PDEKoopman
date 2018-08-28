@@ -243,6 +243,7 @@ def try_net(data_val, params):
                 train_val_error[count, 14] = train_errors_dict['loss_L2']
                 train_val_error[count, 15] = val_errors_dict['loss_L2']
 
+
                 if step % 200 == 0:
                     train_val_error_trunc = train_val_error[range(count), :]
                     np.savetxt(csv_path, train_val_error_trunc, delimiter=',')
