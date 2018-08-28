@@ -205,11 +205,11 @@ def save_files(sess, saver, csv_path, train_val_error, params, weights, biases):
     if params['add_identity']:
         graph = tf.get_default_graph()
         alphaE = graph.get_tensor_by_name("alphaE:0")
-        alphaE_reshaped = np.asarray(sess.run(alphaE)).reshape((1,1))
+        alphaE_reshaped = np.asarray(sess.run(alphaE)).reshape((1, 1))
         np.savetxt(csv_path.replace('error', "alphaE"), alphaE_reshaped, delimiter=',')
 
         alphaD = graph.get_tensor_by_name("alphaD:0")
-        alphaD_reshaped = np.asarray(sess.run(alphaD)).reshape((1,1))
+        alphaD_reshaped = np.asarray(sess.run(alphaD)).reshape((1, 1))
         np.savetxt(csv_path.replace('error', "alphaD"), alphaD_reshaped, delimiter=',')
 
     params['minTrain'] = np.min(train_val_error[:, 0])
@@ -278,11 +278,11 @@ def set_defaults(params):
     if 'linear_encoder_layers' not in params:
         # default is that only last layer is linear
         params['linear_encoder_layers'] = [params['num_encoder_weights'] - 1, ]
-	print(params['linear_encoder_layers'])
+        print(params['linear_encoder_layers'])
     if 'linear_decoder_layers' not in params:
         # default is that only last layer is linear
         params['linear_decoder_layers'] = [params['num_decoder_weights'] - 1, ]
-	print(params['linear_decoder_layers'])
+        print(params['linear_decoder_layers'])
     if 'folder_name' not in params:
         params['folder_name'] = 'results'
     if 'L1_lam' not in params:
@@ -478,7 +478,7 @@ def set_defaults(params):
             if 'linear_omega_layers' not in params:
                 # default is that only last layer is linear
                 params['linear_omega_layers'] = [params['num_omega_weights'] - 1, ]
-		print(params['linear_omega_layers'])
+                print(params['linear_omega_layers'])
 
             if 'dist_weights_omega' not in params:
                 params['dist_weights_omega'] = 'tn'
@@ -500,6 +500,7 @@ def num_shifts_in_stack(params):
         max_shifts_to_stack = max(max_shifts_to_stack, max(params['shifts_middle']))
 
     return max_shifts_to_stack
+
 
 def apply_act_fn(h1, act_type):
     if act_type == 'sigmoid':
