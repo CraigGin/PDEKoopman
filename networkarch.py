@@ -66,9 +66,10 @@ def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_gues
 
 def encoder_apply(x, weights, biases, identity_weight, act_type, batch_flag, phase, out_flag, shifts_middle, keep_prob, linear_encoder_layers, name='E',
                   num_encoder_weights=1):
-    y = []
+    partially_encoded_list = []
+    encoded_list = []
     num_shifts_middle = len(shifts_middle)
-    for j in np.arange(num_shifts_middle + 1):
+    for j in np.arange(x.shape[0]):
         if j == 0:
             shift = 0
         else:
@@ -77,10 +78,13 @@ def encoder_apply(x, weights, biases, identity_weight, act_type, batch_flag, pha
             x_shift = x[shift]
         else:
             x_shift = tf.squeeze(x[shift, :, :])
-        y.append(
+        partially_encoded, encoded =
             encoder_apply_one_shift(x_shift, weights, biases, identity_weight, act_type, batch_flag, phase, out_flag, keep_prob, linear_encoder_layers, name,
-                                    num_encoder_weights))
-    return y
+                                    num_encoder_weights)
+        partially_encoded_list.append(partially_encoded)
+        if j <= num_shifts_middle:
+            encoded_list.append(encoded)
+    return partially_encoded_list, encoded_list
 
 
 def encoder_apply_one_shift(x, weights, biases, identity_weight, act_type, batch_flag, phase, out_flag, keep_prob,
@@ -92,10 +96,10 @@ def encoder_apply_one_shift(x, weights, biases, identity_weight, act_type, batch
         if i not in linear_encoder_layers:
             prev_layer = helperfns.apply_act_fn(prev_layer, act_type)
 
-    output = prev_layer + tf.scalar_mul(identity_weight, x)
-    output = tf.matmul(output, weights['W%s%d' % (name, num_encoder_weights)]) + biases['b%s%d' % (name, num_encoder_weights)]
+    partially_encoded = prev_layer + tf.scalar_mul(identity_weight, x)
+    encoded = tf.matmul(partially_encoded, weights['W%s%d' % (name, num_encoder_weights)]) + biases['b%s%d' % (name, num_encoder_weights)]
 
-    return output
+    return partially_encoded, encoded
 
 
 def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0, add_identity=0):
@@ -253,9 +257,9 @@ def create_koopman_net(phase, keep_prob, params):
                                           num_shifts_max=max_shifts_to_stack, first_guess=params['first_guess'], add_identity=params['add_identity'])
 
     # returns list: encode each shift
-    g_list = encoder_apply(x_noisy, weights, biases, identity_weight_encoder, params['act_type'], params['batch_flag'], phase, out_flag=0,
-                           shifts_middle=params['shifts_middle'], keep_prob=keep_prob, linear_encoder_layers=params['linear_encoder_layers'],
-                           num_encoder_weights=params['num_encoder_weights'])
+    partial_encoded_list, g_list = encoder_apply(x_noisy, weights, biases, identity_weight_encoder, params['act_type'], params['batch_flag'], phase, out_flag=0,
+                                   shifts_middle=params['shifts_middle'], keep_prob=keep_prob, linear_encoder_layers=params['linear_encoder_layers'],
+                                   num_encoder_weights=params['num_encoder_weights'])
 
     if not params['autoencoder_only']:
         if not params['fixed_L']:
@@ -315,4 +319,4 @@ def create_koopman_net(phase, keep_prob, params):
         raise ValueError(
             'length(y) not proper length: check create_koopman_net code and how defined params[shifts] in experiment')
 
-    return x, x_noisy, y, g_list, weights, biases
+    return x, x_noisy, y, g_list, partial_encoded_list, weights, biases
