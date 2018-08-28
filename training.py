@@ -81,7 +81,8 @@ def define_loss(x, y, partial_encoded_list, g_list, weights, biases, params, pha
     # inner-autoencoder loss
     loss4 = tf.zeros([1, ], dtype=tf.float64)
     if params['inner_autoencoder_loss_lam']:
-        for shift in np.arange(x.shape[0]):
+        num_shifts_total = helperfns.num_shifts_in_stack(params)+1
+        for shift in np.arange(num_shifts_total):
             if params['relative_loss']:
                 loss4_denominator = tf.reduce_mean(
                     tf.reduce_mean(tf.square(partial_encoded_list[shift]), 1)) + denominator_nonzero
@@ -92,7 +93,7 @@ def define_loss(x, y, partial_encoded_list, g_list, weights, biases, params, pha
             temp = tf.matmul(temp, weights['WD1']) + biases['bD1']
             mean_squared_error = tf.reduce_mean(tf.reduce_mean(tf.square(partial_encoded_list[shift] - temp), 1))
             loss4 += params['inner_autoencoder_loss_lam'] * tf.truediv(mean_squared_error, loss4_denominator)
-    loss4 = loss4 / x.shape[0]
+        loss4 = loss4 / num_shifts_total
 
 
     # inf norm on autoencoder error

@@ -65,12 +65,12 @@ def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_gues
 
 
 def encoder_apply(x, weights, biases, identity_weight, act_type, batch_flag, phase, out_flag, shifts_middle, keep_prob,
-                  linear_encoder_layers, name='E',
+                  linear_encoder_layers, num_shifts_max, name='E',
                   num_encoder_weights=1):
     partially_encoded_list = []
     encoded_list = []
     num_shifts_middle = len(shifts_middle)
-    for j in np.arange(x.shape[0]):
+    for j in np.arange(num_shifts_max+1):
         if j == 0:
             shift = 0
         else:
@@ -270,7 +270,8 @@ def create_koopman_net(phase, keep_prob, params):
                                                  params['batch_flag'], phase, out_flag=0,
                                                  shifts_middle=params['shifts_middle'], keep_prob=keep_prob,
                                                  linear_encoder_layers=params['linear_encoder_layers'],
-                                                 num_encoder_weights=params['num_encoder_weights'])
+                                                 num_encoder_weights=params['num_encoder_weights'],
+                                                 num_shifts_max=max_shifts_to_stack)
 
     if not params['autoencoder_only']:
         if not params['fixed_L']:
@@ -337,4 +338,4 @@ def create_koopman_net(phase, keep_prob, params):
         raise ValueError(
             'length(y) not proper length: check create_koopman_net code and how defined params[shifts] in experiment')
 
-    return x, x_noisy, y, g_list, partial_encoded_list, weights, biases
+    return x, x_noisy, y, partial_encoded_list, g_list, weights, biases
