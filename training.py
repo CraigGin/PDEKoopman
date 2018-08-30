@@ -8,7 +8,7 @@ import helperfns
 import networkarch as net
 
 
-def define_loss(x, y, partial_encoded_list, g_list, weights, biases, params, phase, keep_prob):
+def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, weights, biases, params, phase, keep_prob):
     # Minimize the mean squared errors.
     # subtraction and squaring element-wise, then average over both dimensions
     # n columns
@@ -16,17 +16,20 @@ def define_loss(x, y, partial_encoded_list, g_list, weights, biases, params, pha
     denominator_nonzero = 10 ** (-5)
 
     # autoencoder loss
+    loss1 = tf.zeros([1, ], dtype=tf.float64)
     if params['autoencoder_loss_lam']:
-        if params['relative_loss']:
-            loss1_denominator = tf.reduce_mean(
-                tf.reduce_mean(tf.square(tf.squeeze(x[0, :, :])), 1)) + denominator_nonzero
-        else:
-            loss1_denominator = tf.to_double(1.0)
-        # compare to original x because want y to have noise removed
-        mean_squared_error = tf.reduce_mean(tf.reduce_mean(tf.square(y[0] - tf.squeeze(x[0, :, :])), 1))
-        loss1 = params['autoencoder_loss_lam'] * tf.truediv(mean_squared_error, loss1_denominator)
-    else:
-        loss1 = tf.zeros([1, ], dtype=tf.float64)
+        num_shifts_total = helperfns.num_shifts_in_stack(params)+1
+        for shift in np.arange(num_shifts_total):
+            if params['relative_loss']:
+                loss1_denominator = tf.reduce_mean(
+                    tf.reduce_mean(tf.square(tf.squeeze(x[shift,:,:])), 1)) + denominator_nonzero
+            else:
+                loss1_denominator = tf.to_double(1.0)
+
+            mean_squared_error = tf.reduce_mean(tf.reduce_mean(tf.square(reconstructed_x[shift] - tf.squeeze(x[shift,:,:])), 1))
+            loss1 += params['autoencoder_loss_lam'] * tf.truediv(mean_squared_error, loss1_denominator)
+        loss1 = loss1 / num_shifts_total
+
 
     # gets dynamics (prediction loss)
     loss2 = tf.zeros([1, ], dtype=tf.float64)
@@ -139,13 +142,13 @@ def try_net(data_val, params):
     # SET UP NETWORK
     phase = tf.placeholder(tf.bool, name='phase')
     keep_prob = tf.placeholder(tf.float64, shape=[], name='keep_prob')
-    x, x_noisy, y, partial_encoded_list, g_list, weights, biases = net.create_koopman_net(phase, keep_prob, params)
+    x, x_noisy, y, partial_encoded_list, g_list, reconstructed_x, weights, biases = net.create_koopman_net(phase, keep_prob, params)
 
     max_shifts_to_stack = helperfns.num_shifts_in_stack(params)
 
     # DEFINE LOSS FUNCTION
     trainable_var = tf.trainable_variables()
-    loss1, loss2, loss3, loss4, loss_Linf, loss = define_loss(x, y, partial_encoded_list, g_list, weights, biases, params, phase, keep_prob)
+    loss1, loss2, loss3, loss4, loss_Linf, loss = define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, weights, biases, params, phase, keep_prob)
     loss_L1, loss_L2, regularized_loss, regularized_loss1 = define_regularization(params, trainable_var, loss, loss1)
     losses = {'loss1': loss1, 'loss2': loss2, 'loss3': loss3, 'loss4': loss4, 'loss_Linf': loss_Linf, 'loss': loss,
               'loss_L1': loss_L1, 'loss_L2': loss_L2, 'regularized_loss': regularized_loss,
