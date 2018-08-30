@@ -312,7 +312,7 @@ def create_koopman_net(phase, keep_prob, params):
                       params['num_decoder_weights'], params['linear_decoder_layers']))
 
     reconstructed_x = []
-    for j in np.arange(max_shifts_to_stack):
+    for j in np.arange(max_shifts_to_stack+1):
         reconstructed_x.append(decoder_apply(g_list[j], weights, biases, identity_weight_decoder, params['act_type'], params['batch_flag'],
                                phase, keep_prob, params['num_decoder_weights'], params['linear_decoder_layers']))
 
