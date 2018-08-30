@@ -311,6 +311,12 @@ def create_koopman_net(phase, keep_prob, params):
                       phase, keep_prob,
                       params['num_decoder_weights'], params['linear_decoder_layers']))
 
+    reconstructed_x = []
+    for j in np.arange(max_shifts_to_stack):
+        reconstructed_x.append(decoder_apply(g_list[j], weights, biases, identity_weight_decoder, params['act_type'], params['batch_flag'],
+                               phase, keep_prob, params['num_decoder_weights'], params['linear_decoder_layers']))
+
+
     if not params['autoencoder_only']:
         # g_list_omega[0] is for x[0,:,:], pairs with g_list[0]=encoded_layer
         if params['fixed_L']:
@@ -338,4 +344,4 @@ def create_koopman_net(phase, keep_prob, params):
         raise ValueError(
             'length(y) not proper length: check create_koopman_net code and how defined params[shifts] in experiment')
 
-    return x, x_noisy, y, partial_encoded_list, g_list, weights, biases
+    return x, x_noisy, y, partial_encoded_list, g_list, reconstructed_x, weights, biases
