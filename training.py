@@ -8,7 +8,7 @@ import helperfns
 import networkarch as net
 
 
-def define_loss(x, y, g_list, weights, biases, params, phase, keep_prob):
+def define_loss(x, y, partial_encoded_list, g_list, weights, biases, params, phase, keep_prob):
     # Minimize the mean squared errors.
     # subtraction and squaring element-wise, then average over both dimensions
     # n columns
@@ -78,6 +78,24 @@ def define_loss(x, y, g_list, weights, biases, params, phase, keep_prob):
                                                  params['num_complex_pairs'])
         loss3 = loss3 / params['num_shifts_middle']
 
+    # inner-autoencoder loss
+    loss4 = tf.zeros([1, ], dtype=tf.float64)
+    if params['inner_autoencoder_loss_lam']:
+        num_shifts_total = helperfns.num_shifts_in_stack(params)+1
+        for shift in np.arange(num_shifts_total):
+            if params['relative_loss']:
+                loss4_denominator = tf.reduce_mean(
+                    tf.reduce_mean(tf.square(partial_encoded_list[shift]), 1)) + denominator_nonzero
+            else:
+                loss4_denominator = tf.to_double(1.0)
+
+            temp = tf.matmul(partial_encoded_list[shift], weights['WE%d' % params['num_encoder_weights']]) + biases['bE%d' % params['num_encoder_weights']]
+            temp = tf.matmul(temp, weights['WD1']) + biases['bD1']
+            mean_squared_error = tf.reduce_mean(tf.reduce_mean(tf.square(partial_encoded_list[shift] - temp), 1))
+            loss4 += params['inner_autoencoder_loss_lam'] * tf.truediv(mean_squared_error, loss4_denominator)
+        loss4 = loss4 / num_shifts_total
+
+
     # inf norm on autoencoder error
     if params['relative_loss']:
         Linf1_den = tf.norm(tf.norm(tf.squeeze(x[0, :, :]), axis=1, ord=np.inf), ord=np.inf) + denominator_nonzero
@@ -94,9 +112,9 @@ def define_loss(x, y, g_list, weights, biases, params, phase, keep_prob):
         Linf2_penalty = tf.zeros([1, ], dtype=tf.float64)
     loss_Linf = params['Linf_lam'] * (Linf1_penalty + Linf2_penalty)
 
-    loss = loss1 + loss2 + loss3 + loss_Linf
+    loss = loss1 + loss2 + loss3 + loss4 + loss_Linf
 
-    return loss1, loss2, loss3, loss_Linf, loss
+    return loss1, loss2, loss3, loss4, loss_Linf, loss
 
 
 def define_regularization(params, trainable_var, loss, loss1):
@@ -121,15 +139,15 @@ def try_net(data_val, params):
     # SET UP NETWORK
     phase = tf.placeholder(tf.bool, name='phase')
     keep_prob = tf.placeholder(tf.float64, shape=[], name='keep_prob')
-    x, x_noisy, y, g_list, weights, biases = net.create_koopman_net(phase, keep_prob, params)
+    x, x_noisy, y, partial_encoded_list, g_list, weights, biases = net.create_koopman_net(phase, keep_prob, params)
 
     max_shifts_to_stack = helperfns.num_shifts_in_stack(params)
 
     # DEFINE LOSS FUNCTION
     trainable_var = tf.trainable_variables()
-    loss1, loss2, loss3, loss_Linf, loss = define_loss(x, y, g_list, weights, biases, params, phase, keep_prob)
+    loss1, loss2, loss3, loss4, loss_Linf, loss = define_loss(x, y, partial_encoded_list, g_list, weights, biases, params, phase, keep_prob)
     loss_L1, loss_L2, regularized_loss, regularized_loss1 = define_regularization(params, trainable_var, loss, loss1)
-    losses = {'loss1': loss1, 'loss2': loss2, 'loss3': loss3, 'loss_Linf': loss_Linf, 'loss': loss,
+    losses = {'loss1': loss1, 'loss2': loss2, 'loss3': loss3, 'loss4': loss4, 'loss_Linf': loss_Linf, 'loss': loss,
               'loss_L1': loss_L1, 'loss_L2': loss_L2, 'regularized_loss': regularized_loss,
               'regularized_loss1': regularized_loss1}
 
@@ -151,7 +169,7 @@ def try_net(data_val, params):
 
     num_saved_per_file_pass = params['num_steps_per_file_pass'] / 20 + 1
     num_saved = np.floor(num_saved_per_file_pass * params['data_train_len'] * params['num_passes_per_file']).astype(int)
-    train_val_error = np.zeros([num_saved, 16])
+    train_val_error = np.zeros([num_saved, 18])
     count = 0
     best_error = 10000
 
@@ -232,16 +250,18 @@ def try_net(data_val, params):
                 train_val_error[count, 7] = val_errors_dict['loss2']
                 train_val_error[count, 8] = train_errors_dict['loss3']
                 train_val_error[count, 9] = val_errors_dict['loss3']
-                train_val_error[count, 10] = train_errors_dict['loss_Linf']
-                train_val_error[count, 11] = val_errors_dict['loss_Linf']
-                if np.isnan(train_val_error[count, 10]):
+                train_val_error[count, 10] = train_errors_dict['loss4']
+                train_val_error[count, 11] = val_errors_dict['loss4']
+                train_val_error[count, 12] = train_errors_dict['loss_Linf']
+                train_val_error[count, 13] = val_errors_dict['loss_Linf']
+                if np.isnan(train_val_error[count, 12]):
                     params['stop_condition'] = 'loss_Linf is nan'
                     finished = 1
                     break
-                train_val_error[count, 12] = train_errors_dict['loss_L1']
-                train_val_error[count, 13] = val_errors_dict['loss_L1']
-                train_val_error[count, 14] = train_errors_dict['loss_L2']
-                train_val_error[count, 15] = val_errors_dict['loss_L2']
+                train_val_error[count, 14] = train_errors_dict['loss_L1']
+                train_val_error[count, 15] = val_errors_dict['loss_L1']
+                train_val_error[count, 16] = train_errors_dict['loss_L2']
+                train_val_error[count, 17] = val_errors_dict['loss_L2']
 
 
                 if step % 200 == 0:
