@@ -126,7 +126,7 @@ def define_regularization(params, trainable_var, loss, loss1):
         loss_L1 = tf.zeros([1, ], dtype=tf.float64)
 
     # tf.nn.l2_loss returns number
-    l2_regularizer = tf.add_n([tf.nn.l2_loss(v) for v in trainable_var if 'b' not in v.name])
+    l2_regularizer = tf.add_n([tf.nn.l2_loss(v) for v in trainable_var if 'W' in v.name])
     loss_L2 = params['L2_lam'] * l2_regularizer
 
     regularized_loss = loss + loss_L1 + loss_L2
