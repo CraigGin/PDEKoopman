@@ -357,6 +357,9 @@ def set_defaults(params):
     if 'inner_autoencoder_loss_lam' not in params:
         params['inner_autoencoder_loss_lam'] = 0
 
+    if 'outer_autoencoder_loss_lam' not in params:
+        params['outer_autoencoder_loss_lam'] = 0
+
     if 'recon_lam' in params:
         # instead of recon_lam, now have separated autoencoder_loss_lam and prediction_loss_lam
         if 'autoencoder_loss_lam' in params:
