@@ -3,4 +3,6 @@ exp*/
 *.mat
 *.pkl
 *.pyc
+*.csv
+MeetingUpdates/
 exp*/*
