@@ -57,7 +57,7 @@ def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_gues
         biases['bE%d' % (i + 1)] = bias_variable([widths[i + 1], ], var_name='bE%d' % (i + 1),
                                                  distribution=dist_biases[i])
     if add_identity:
-        identity_weight = tf.Variable(initial_value=add_identity, name='alphaE', dtype=np.float64)
+        identity_weight = tf.Variable(initial_value=add_identity, name='alphaE', dtype=np.float64, trainable=False)
     else:
         identity_weight = 0
 
@@ -117,7 +117,7 @@ def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0, a
                                                       distribution=dist_biases[ind - 1])
 
     if add_identity:
-        identity_weight = tf.Variable(initial_value=add_identity, name=('alpha%s' % name), dtype=np.float64)
+        identity_weight = tf.Variable(initial_value=add_identity, name='alphaD', dtype=np.float64, trainable=False)
     else:
         identity_weight = 0
 
@@ -128,7 +128,7 @@ def decoder_apply(x, weights, biases, identity_weight, act_type, batch_flag, pha
                   linear_decoder_layers):
     prev_layer = tf.identity(x)
     prev_layer = tf.matmul(prev_layer, weights['WD1']) + biases['bD1']
-    if 1 not in linear_decoder_layers:
+    if 0 not in linear_decoder_layers:
         prev_layer = helperfns.apply_act_fn(prev_layer, act_type)
     output = outer_decoder_apply(prev_layer, weights, biases, identity_weight, act_type, batch_flag, phase, keep_prob,
                                  num_decoder_weights,

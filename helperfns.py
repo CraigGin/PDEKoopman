@@ -491,7 +491,8 @@ def set_defaults(params):
                 params['dist_weights_omega'] = [params['dist_weights_omega']] * (len(params['widths_omega_real']) - 1)
             if isinstance(params['dist_biases_omega'], int):
                 params['dist_biases_omega'] = [params['dist_biases_omega']] * (len(params['widths_omega_real']) - 1)
-
+    if 'mu' not in params:
+        params['mu'] = 1
     return params
 
 

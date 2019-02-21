@@ -137,7 +137,7 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
     return loss1, loss2, loss3, loss4, loss5, loss_Linf, loss
 
 
-def define_regularization(params, trainable_var, loss, loss1):
+def define_regularization(params, trainable_var, loss, loss1, loss4, loss5):
     if params['L1_lam']:
         l1_regularizer = tf.contrib.layers.l1_regularizer(scale=params['L1_lam'], scope=None)
         # TODO: don't include biases? use weights dict instead?
@@ -150,7 +150,7 @@ def define_regularization(params, trainable_var, loss, loss1):
     loss_L2 = params['L2_lam'] * l2_regularizer
 
     regularized_loss = loss + loss_L1 + loss_L2
-    regularized_loss1 = loss1 + loss_L1 + loss_L2
+    regularized_loss1 = loss1 + loss_L1 + loss_L2 + loss4 + loss5
 
     return loss_L1, loss_L2, regularized_loss, regularized_loss1
 
@@ -169,7 +169,7 @@ def try_net(data_val, params):
     loss1, loss2, loss3, loss4, loss5, loss_Linf, loss = define_loss(x, y, partial_encoded_list, g_list,
                                                                      reconstructed_x, outer_reconst_x, weights, biases,
                                                                      params, phase, keep_prob)
-    loss_L1, loss_L2, regularized_loss, regularized_loss1 = define_regularization(params, trainable_var, loss, loss1)
+    loss_L1, loss_L2, regularized_loss, regularized_loss1 = define_regularization(params, trainable_var, loss, loss1, loss4, loss5)
     losses = {'loss1': loss1, 'loss2': loss2, 'loss3': loss3, 'loss4': loss4, 'loss5': loss5, 'loss_Linf': loss_Linf,
               'loss': loss,
               'loss_L1': loss_L1, 'loss_L2': loss_L2, 'regularized_loss': regularized_loss,
@@ -180,7 +180,13 @@ def try_net(data_val, params):
     optimizer_autoencoder = helperfns.choose_optimizer(params, regularized_loss1, trainable_var)
 
     # LAUNCH GRAPH AND INITIALIZE
-    sess = tf.Session()
+    # Use 50% of GPU
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)
+    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    # Start with only as much GPU usage as needed and allow it to grow
+    # config = tf.ConfigProto()
+    # config.gpu_options.allow_growth = True
+    # sess = tf.Session(config=config)
     saver = tf.train.Saver()
 
     # Before starting, initialize the variables.  We will 'run' this first.
