@@ -14,8 +14,20 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
     # n columns
     # average of each row (across columns), then average the rows
     with tf.variable_scope("dynamics", reuse=True):
-        L = tf.get_variable("L")
-
+        if not params['fix_middle']:
+            L = tf.get_variable("L")
+        else:
+            max_freq = np.divide(params['n_middle'],2)
+            kv = np.empty((params['n_middle'],))
+            if params['n_middle'] % 2 == 0:
+                kv[::2] = np.array(range(max_freq))
+            else:
+                kv[::2] = np.array(range(max_freq+1))
+            kv[1::2] = np.array(range(1,max_freq+1))
+            dt = params['delta_t']
+            mu = tf.get_variable("mu")
+            L = tf.diag(tf.exp(-mu*kv*kv*dt), name="L")
+        
     with tf.variable_scope("encoder", reuse=True):
         FT = tf.get_variable("FT")
 
@@ -125,7 +137,8 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
             loss5 += params['outer_autoencoder_loss_lam'] * tf.truediv(mean_squared_error, loss5_denominator)
         loss5 = loss5 / num_shifts_total
 
-    loss = loss1 + loss2 + loss3 + loss4 + loss5 
+    loss_list = [loss1, loss2, loss3, loss4, loss5]
+    loss = tf.add_n(loss_list, name="loss")
 
     return loss1, loss2, loss3, loss4, loss5, loss
 

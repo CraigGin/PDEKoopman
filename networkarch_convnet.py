@@ -5,7 +5,7 @@ from functools import partial
 
 import helperfns_convnet
 
-def encoder_apply(x, n_inputs, conv1_filters, n_middle, reg_lam, shifts_middle, num_shifts_max, fix_middle):
+def encoder_apply(x, n_inputs, conv1_filters, n_middle, reg_lam, shifts_middle, num_shifts_max, fix_middle, seed_middle):
     partially_encoded_list = []
     encoded_list = []
     num_shifts_middle = len(shifts_middle)
@@ -20,7 +20,7 @@ def encoder_apply(x, n_inputs, conv1_filters, n_middle, reg_lam, shifts_middle, 
             x_shift = x[shift]
         else:
             x_shift = tf.squeeze(x[shift, :, :])
-        partially_encoded, encoded = encoder_apply_one_shift(x_shift, n_inputs, conv1_filters, n_middle, reg_lam, reuse, fix_middle)
+        partially_encoded, encoded = encoder_apply_one_shift(x_shift, n_inputs, conv1_filters, n_middle, reg_lam, reuse, fix_middle, seed_middle)
         partially_encoded_list.append(partially_encoded)
         if j <= num_shifts_middle:
             encoded_list.append(encoded)
@@ -28,7 +28,7 @@ def encoder_apply(x, n_inputs, conv1_filters, n_middle, reg_lam, shifts_middle, 
     return partially_encoded_list, encoded_list
 
 
-def encoder_apply_one_shift(x, n_inputs, conv1_filters, n_middle, reg_lam, reuse, fix_middle):
+def encoder_apply_one_shift(x, n_inputs, conv1_filters, n_middle, reg_lam, reuse, fix_middle, seed_middle):
     prev_layer = tf.identity(x)
 
     he_init = tf.contrib.layers.variance_scaling_initializer()
@@ -50,7 +50,7 @@ def encoder_apply_one_shift(x, n_inputs, conv1_filters, n_middle, reg_lam, reuse
         
 
 
-        if not fix_middle:
+        if not seed_middle:
             FT = tf.get_variable("FT", shape=[n_inputs, n_middle], initializer=he_init, trainable=True, dtype=tf.float32)
         else:
             # Fix last matrix of encoder to be reduced DFT
@@ -65,18 +65,21 @@ def encoder_apply_one_shift(x, n_inputs, conv1_filters, n_middle, reg_lam, reuse
             Reduce = np.hstack((np.eye(n_middle),np.zeros((n_middle,n_inputs-n_middle))))
             Reduced_DFT = Reduce.dot(combinedDFT)
             Reduced_DFT = Reduced_DFT.T
-            FT = tf.get_variable("FT", initializer=np.float32(Reduced_DFT), trainable=False, dtype=tf.float32)
+            if not fix_middle:
+                FT = tf.get_variable("FT", initializer=np.float32(Reduced_DFT), trainable=True, dtype=tf.float32)
+            else:
+                FT = tf.get_variable("FT", initializer=np.float32(Reduced_DFT), trainable=False, dtype=tf.float32)
     
         encoded = tf.matmul(partially_encoded,FT, name="vk_hat")
 
     return partially_encoded, encoded
 
-def decoder_apply(x, n_middle, conv2_filters, n_outputs, reg_lam, reuse, fix_middle):
+def decoder_apply(x, n_middle, conv2_filters, n_outputs, reg_lam, reuse, fix_middle, seed_middle):
     prev_layer = tf.identity(x)
 
     with tf.variable_scope("decoder_inner", reuse=reuse):
         
-        if not fix_middle:
+        if not seed_middle:
             IFT = tf.get_variable("IFT", shape=[n_middle, n_outputs], initializer=tf.contrib.layers.variance_scaling_initializer(), 
                                 trainable=True, dtype=tf.float32)
         else:
@@ -94,7 +97,10 @@ def decoder_apply(x, n_middle, conv2_filters, n_outputs, reg_lam, reuse, fix_mid
             inv_DFT = np.linalg.inv(combinedDFT)
             Expand_DFT = inv_DFT.dot(Expand)
             Expand_DFT = Expand_DFT.T
-            IFT = tf.get_variable("IFT", initializer=np.float32(Expand_DFT), trainable=False, dtype=tf.float32)
+            if not fix_middle:
+                IFT = tf.get_variable("IFT", initializer=np.float32(Expand_DFT), trainable=True, dtype=tf.float32)
+            else:
+                IFT = tf.get_variable("IFT", initializer=np.float32(Expand_DFT), trainable=False, dtype=tf.float32)
 
 
         prev_layer = tf.matmul(prev_layer, IFT) 
@@ -132,14 +138,14 @@ def create_koopman_net(params):
     conv2_filters = params['conv2_filters']
     n_outputs = params['n_outputs']
 
-    x = tf.placeholder(tf.float32, [max_shifts_to_stack + 1, None, n_inputs])
+    x = tf.placeholder(tf.float32, shape=[max_shifts_to_stack + 1, None, n_inputs], name="x")
 
     # returns list: encode each shift
     partial_encoded_list, g_list = encoder_apply(x, n_inputs, conv1_filters, n_middle, reg_lam=params['L2_lam'],
                                                 shifts_middle=params['shifts_middle'], num_shifts_max=max_shifts_to_stack, 
-                                                fix_middle=params['fix_middle'])
+                                                fix_middle=params['fix_middle'], seed_middle=params['seed_middle'])
 
-    if not params['fix_middle']:
+    if not params['seed_middle']:
         with tf.variable_scope("dynamics", reuse=False):
             L = tf.get_variable("L", shape=[n_middle, n_middle], initializer=tf.contrib.layers.variance_scaling_initializer(), 
                                 trainable=True, dtype=tf.float32)
@@ -153,20 +159,25 @@ def create_koopman_net(params):
             kv[::2] = np.array(range(max_freq+1))
         kv[1::2] = np.array(range(1,max_freq+1))
         dt = params['delta_t']
-        with tf.variable_scope("dynamics", reuse=False):
-            L = tf.get_variable("L", initializer=np.float32(np.diag(np.exp(-params['mu']*kv*kv*dt))), trainable=False, dtype=tf.float32)
+        if not params['fix_middle']:
+            with tf.variable_scope("dynamics", reuse=False):
+                L = tf.get_variable("L", initializer=np.float32(np.diag(np.exp(-params['mu']*kv*kv*dt))), trainable=True, dtype=tf.float32)
+        else:
+            with tf.variable_scope("dynamics", reuse=False):
+                mu = tf.get_variable("mu", shape=[1], initializer=tf.contrib.layers.variance_scaling_initializer(), trainable=True, dtype=tf.float32)
+                L = tf.diag(tf.exp(-mu*kv*kv*dt), name="L")
 
     y = []
     # y[0] is x[0,:,:] encoded and then decoded (no stepping forward)
     encoded_layer = g_list[0]
 
     y.append(decoder_apply(encoded_layer, n_middle, conv2_filters, n_outputs, reg_lam=params['L2_lam'], reuse=False, 
-                            fix_middle=params['fix_middle']))
+                            fix_middle=params['fix_middle'], seed_middle=params['seed_middle']))
 
     reconstructed_x = []
     for j in np.arange(max_shifts_to_stack + 1):
         reconstructed_x.append(decoder_apply(g_list[j], n_middle, conv2_filters, n_outputs, reg_lam=params['L2_lam'], reuse=True, 
-                                            fix_middle=params['fix_middle']))
+                                            fix_middle=params['fix_middle'], seed_middle=params['seed_middle']))
 
     outer_reconst_x = []
     for j in np.arange(max_shifts_to_stack + 1):
@@ -181,7 +192,7 @@ def create_koopman_net(params):
             # considering penalty on subset of yk+1, yk+2, yk+3, ... yk+20
             if (j + 1) in params['shifts']:
                 y.append(decoder_apply(advanced_layer, n_middle, conv2_filters, n_outputs, reg_lam=params['L2_lam'], reuse=True,
-                                        fix_middle=params['fix_middle']))
+                                        fix_middle=params['fix_middle'], seed_middle=params['seed_middle']))
 
             advanced_layer = tf.matmul(advanced_layer, L)
 

@@ -480,6 +480,9 @@ def set_defaults(params):
         params['mu'] = 1
     if 'fix_middle' not in params:
         params['fix_middle'] = 0
+    if 'seed_middle' not in params:
+        params['seed_middle'] = 0
+        params['fix_middle'] = 0
     if 'restore' not in params:
         params['restore'] = 0
     return params
