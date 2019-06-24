@@ -31,36 +31,52 @@ def encoder_apply(x, n_inputs, conv1_filters, n_middle, reg_lam, shifts_middle, 
 def encoder_apply_one_shift(x, n_inputs, conv1_filters, n_middle, reg_lam, reuse, fix_middle, seed_middle):
     prev_layer = tf.identity(x)
 
-    he_init = tf.contrib.layers.variance_scaling_initializer()
-    my_conv_layer = partial(tf.layers.conv1d, activation=tf.nn.relu, kernel_initializer=he_init,
+    my_conv_layer = partial(tf.layers.conv1d, activation=tf.nn.relu, 
                              kernel_regularizer=tf.contrib.layers.l2_regularizer(reg_lam), bias_regularizer=None)
 
     with tf.variable_scope("encoder", reuse=reuse):
         log_uk = tf.log(prev_layer+2, name="log_uk")
         log_uk_reshaped = tf.reshape(log_uk, shape=[-1, n_inputs, 1], name="log_uk_reshaped")
-        hidden1_encode = my_conv_layer(log_uk_reshaped, filters=conv1_filters, kernel_size=1, strides=1, padding="VALID",
-                            name="hidden1_encode", reuse=reuse)
-        a_encode = tf.get_variable(name="a_encode", shape=[conv1_filters], dtype=tf.float32, initializer=he_init, 
-                            regularizer=tf.contrib.layers.l2_regularizer(reg_lam))
+        hidden1_encode = my_conv_layer(log_uk_reshaped, filters=conv1_filters, kernel_size=1, strides=1, padding="SAME",
+                            kernel_initializer=tf.constant_initializer(np.eye(1, dtype=np.float32)), name="hidden1_encode")
+        a_encode = tf.get_variable(name="a_encode", dtype=tf.float32, 
+                            initializer=np.ones(conv1_filters, dtype=np.float32)/conv1_filters, regularizer=tf.contrib.layers.l2_regularizer(reg_lam))
         hidden1_encode_scaled= a_encode*hidden1_encode
         hidden2_encode = tf.reduce_sum(hidden1_encode_scaled, axis=2, name="hidden2_encode")
-        partially_encoded = tf.layers.dense(hidden2_encode, n_inputs, name="v_k", activation=tf.exp, kernel_initializer=he_init,
-                            kernel_regularizer=tf.contrib.layers.l2_regularizer(reg_lam), bias_regularizer=None, reuse=reuse)
-
-        DFT = dft(n_inputs)
-        rDFT = np.real(DFT)
-        iDFT = np.imag(DFT)
-        combinedDFT = rDFT[0,:]
-        for i in xrange(1,n_inputs/2):
-            combinedDFT = np.vstack((combinedDFT, rDFT[i,:]))
-            combinedDFT = np.vstack((combinedDFT, iDFT[i,:]))
-        combinedDFT = np.vstack((combinedDFT, rDFT[n_inputs/2,:]))
-        Reduce = np.hstack((np.eye(n_middle),np.zeros((n_middle,n_inputs-n_middle))))
-        Reduced_DFT = Reduce.dot(combinedDFT)
-        Reduced_DFT = Reduced_DFT.T
-        #FT = tf.get_variable("FT", initializer=np.float32(Reduced_DFT), trainable=False, dtype=tf.float32)   
-        FT = tf.get_variable("FT", initializer=np.float32(Reduce.T), trainable=True, dtype=tf.float32)    
+        partially_encoded = tf.layers.dense(hidden2_encode, n_inputs, name="v_k", activation=tf.exp, 
+                            kernel_initializer=tf.constant_initializer(np.eye(n_inputs, dtype=np.float32)),
+                            kernel_regularizer=tf.contrib.layers.l2_regularizer(reg_lam), bias_regularizer=None)
+        
+        DFT_init = np.zeros((n_inputs,n_middle))
+        for col in xrange(n_middle):
+            for row in xrange(col,col+n_inputs-n_middle+1):
+                DFT_init[row,col] = 1.0/(n_inputs-n_middle+1) 
+        FT = tf.get_variable("FT", initializer=np.float32(DFT_init), trainable=True, dtype=tf.float32)    
     
+        if not params['seed_middle']:
+            DFT_init = np.zeros((n_inputs,n_middle))
+            for col in xrange(n_middle):
+                for row in xrange(col,col+n_inputs-n_middle+1):
+                    DFT_init[row,col] = 1.0/(n_inputs-n_middle+1) 
+            FT = tf.get_variable("FT", initializer=np.float32(DFT_init), trainable=True, dtype=tf.float32)        
+        else:
+            DFT = dft(n_inputs)
+            rDFT = np.real(DFT)
+            iDFT = np.imag(DFT)
+            combinedDFT = rDFT[0,:]
+            for i in xrange(1,n_inputs/2):
+                combinedDFT = np.vstack((combinedDFT, rDFT[i,:]))
+                combinedDFT = np.vstack((combinedDFT, iDFT[i,:]))
+            combinedDFT = np.vstack((combinedDFT, rDFT[n_inputs/2,:]))
+            Reduce = np.hstack((np.eye(n_middle),np.zeros((n_middle,n_inputs-n_middle))))
+            Reduced_DFT = Reduce.dot(combinedDFT)
+            Reduced_DFT = Reduced_DFT.T
+            if not params['fix_middle']:
+                FT = tf.get_variable("FT", initializer=np.float32(Reduced_DFT), trainable=True, dtype=tf.float32)  
+            else:
+                FT = tf.get_variable("FT", initializer=np.float32(Reduced_DFT), trainable=False, dtype=tf.float32)   
+
+
         encoded = tf.matmul(partially_encoded,FT, name="vk_hat")
 
     return partially_encoded, encoded
@@ -69,22 +85,32 @@ def decoder_apply(x, n_middle, conv2_filters, n_outputs, reg_lam, reuse, fix_mid
     prev_layer = tf.identity(x)
 
     with tf.variable_scope("decoder_inner", reuse=reuse):
-        
-        DFT = dft(n_outputs)
-        rDFT = np.real(DFT)
-        iDFT = np.imag(DFT)
-        combinedDFT = rDFT[0,:]
-        for i in xrange(1,n_outputs/2):
-            combinedDFT = np.vstack((combinedDFT, rDFT[i,:]))
-            combinedDFT = np.vstack((combinedDFT, iDFT[i,:]))
-        combinedDFT = np.vstack((combinedDFT, rDFT[n_outputs/2,:]))
-        Reduce = np.hstack((np.eye(n_middle),np.zeros((n_middle,n_outputs-n_middle))))
-        Expand = Reduce.T
-        inv_DFT = np.linalg.inv(combinedDFT)
-        Expand_DFT = inv_DFT.dot(Expand)
-        Expand_DFT = Expand_DFT.T
-        #IFT = tf.get_variable("IFT", initializer=np.float32(Expand_DFT), trainable=False, dtype=tf.float32)
-        IFT = tf.get_variable("IFT", initializer=np.float32(Reduce), trainable=True, dtype=tf.float32)  
+
+        if not params['seed_middle']:
+            DFT_init = np.zeros((n_outputs,n_middle))
+            for col in xrange(n_middle):
+                for row in xrange(col,col+n_outputs-n_middle+1):
+                    DFT_init[row,col] = 1.0/(n_outputs-n_middle+1) 
+            IFT = tf.get_variable("IFT", initializer=np.float32(DFT_init.T), trainable=True, dtype=tf.float32)  
+        else:
+            DFT = dft(n_outputs)
+            rDFT = np.real(DFT)
+            iDFT = np.imag(DFT)
+            combinedDFT = rDFT[0,:]
+            for i in xrange(1,n_outputs/2):
+                combinedDFT = np.vstack((combinedDFT, rDFT[i,:]))
+                combinedDFT = np.vstack((combinedDFT, iDFT[i,:]))
+            combinedDFT = np.vstack((combinedDFT, rDFT[n_outputs/2,:]))
+            Reduce = np.hstack((np.eye(n_middle),np.zeros((n_middle,n_outputs-n_middle))))
+            Expand = Reduce.T
+            inv_DFT = np.linalg.inv(combinedDFT)
+            Expand_DFT = inv_DFT.dot(Expand)
+            Expand_DFT = Expand_DFT.T
+            if not params['fix_middle']:
+                IFT = tf.get_variable("IFT", initializer=np.float32(Expand_DFT), trainable=True, dtype=tf.float32)  
+            else:
+                IFT = tf.get_variable("IFT", initializer=np.float32(Expand_DFT), trainable=False, dtype=tf.float32)   
+
         prev_layer = tf.matmul(prev_layer, IFT) 
         
     output = outer_decoder_apply(prev_layer, conv2_filters, n_outputs, reg_lam, reuse)
@@ -94,20 +120,20 @@ def decoder_apply(x, n_middle, conv2_filters, n_outputs, reg_lam, reuse, fix_mid
 def outer_decoder_apply(x, conv2_filters, n_outputs, reg_lam, reuse):
     prev_layer = tf.identity(x)
 
-    he_init = tf.contrib.layers.variance_scaling_initializer()
-    my_conv_layer = partial(tf.layers.conv1d, activation=tf.nn.relu, kernel_initializer=he_init,
+    my_conv_layer = partial(tf.layers.conv1d, activation=tf.nn.relu, 
                              kernel_regularizer=tf.contrib.layers.l2_regularizer(reg_lam), bias_regularizer=None)
 
     with tf.variable_scope("decoder_outer", reuse=reuse):
         log_vkplus1 = tf.log(prev_layer, name="log_vkplus1")
         log_vkplus1_reshaped = tf.reshape(log_vkplus1, shape=[-1, n_outputs, 1], name="log_vkplus1_reshaped")
         hidden1_decode = my_conv_layer(log_vkplus1_reshaped, filters=conv2_filters, kernel_size=4, strides=1, padding="SAME",
-                                name="hidden1_decode")
-        a_decode = tf.get_variable(name="a_decode", shape=[conv2_filters], dtype=tf.float32, initializer=he_init, 
+                                kernel_initializer=tf.constant_initializer(np.eye(4, dtype=np.float32)), name="hidden1_decode")
+        a_decode = tf.get_variable(name="a_decode", dtype=tf.float32, initializer=np.ones(conv2_filters, dtype=np.float32)/conv2_filters, 
                                 regularizer=tf.contrib.layers.l2_regularizer(reg_lam))
         hidden1_decode_scaled= a_decode*hidden1_decode
         hidden2_decode = tf.reduce_sum(hidden1_decode_scaled, axis=2, name="hidden2_decode")
-        output = tf.layers.dense(hidden2_decode, n_outputs, name="outputs", activation=None, kernel_initializer=he_init,
+        output = tf.layers.dense(hidden2_decode, n_outputs, name="outputs", activation=None, 
+                                kernel_initializer=tf.constant_initializer(np.eye(n_outputs, dtype=np.float32)),
                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(reg_lam), bias_regularizer=None)
 
     return output
@@ -131,11 +157,9 @@ def create_koopman_net(params):
     if not params['seed_middle']:
         if not params['diag_L']:
             with tf.variable_scope("dynamics", reuse=False):
-                #L = tf.get_variable("L", initializer=np.float32(np.diag(np.random.uniform(0,1.0/n_middle,n_middle))), trainable=True, dtype=tf.float32)
                 L = tf.get_variable("L", initializer=np.eye(n_middle, dtype=np.float32), trainable=True, dtype=tf.float32)
         else:
             with tf.variable_scope("dynamics", reuse=False):
-                #diag = tf.get_variable("diag", initializer=np.float32(np.random.uniform(0,1.0/n_middle,n_middle)), trainable=True, dtype=tf.float32)
                 diag = tf.get_variable("diag", initializer=np.ones(n_middle, dtype=np.float32), trainable=True, dtype=tf.float32)
                 L = tf.diag(diag, name="L")
     else:

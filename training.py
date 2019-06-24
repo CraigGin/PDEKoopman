@@ -17,7 +17,7 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
     denominator_nonzero = 10 ** (-5)
 
     # autoencoder loss
-    loss1 = tf.zeros([1, ], dtype=tf.float64)
+    loss1 = tf.zeros([1, ], dtype=tf.float32)
     if params['autoencoder_loss_lam']:
         num_shifts_total = helperfns.num_shifts_in_stack(params) + 1
         for shift in np.arange(num_shifts_total):
@@ -33,7 +33,7 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
         loss1 = loss1 / num_shifts_total
 
     # gets dynamics (prediction loss)
-    loss2 = tf.zeros([1, ], dtype=tf.float64)
+    loss2 = tf.zeros([1, ], dtype=tf.float32)
     if params['prediction_loss_lam']:
 
         for j in np.arange(params['num_shifts']):
@@ -49,7 +49,7 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
         loss2 = loss2 / params['num_shifts']
 
     # K linear
-    loss3 = tf.zeros([1, ], dtype=tf.float64)
+    loss3 = tf.zeros([1, ], dtype=tf.float32)
     if params['linearity_loss_lam']:
         count_shifts_middle = 0
 
@@ -83,7 +83,7 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
         loss3 = loss3 / params['num_shifts_middle']
 
     # inner-autoencoder loss
-    loss4 = tf.zeros([1, ], dtype=tf.float64)
+    loss4 = tf.zeros([1, ], dtype=tf.float32)
     if params['inner_autoencoder_loss_lam']:
         num_shifts_total = helperfns.num_shifts_in_stack(params) + 1
         for shift in np.arange(num_shifts_total):
@@ -101,7 +101,7 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
         loss4 = loss4 / num_shifts_total
 
     # outer-autoencoder loss
-    loss5 = tf.zeros([1, ], dtype=tf.float64)
+    loss5 = tf.zeros([1, ], dtype=tf.float32)
     if params['outer_autoencoder_loss_lam']:
         num_shifts_total = helperfns.num_shifts_in_stack(params) + 1
         for shift in np.arange(num_shifts_total):
@@ -129,7 +129,7 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
         Linf2_penalty = tf.truediv(
             tf.norm(tf.norm(y[1] - tf.squeeze(x[1, :, :]), axis=1, ord=np.inf), ord=np.inf), Linf2_den)
     else:
-        Linf2_penalty = tf.zeros([1, ], dtype=tf.float64)
+        Linf2_penalty = tf.zeros([1, ], dtype=tf.float32)
     loss_Linf = params['Linf_lam'] * (Linf1_penalty + Linf2_penalty)
 
     loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss_Linf
@@ -143,7 +143,7 @@ def define_regularization(params, trainable_var, loss, loss1, loss4, loss5):
         # TODO: don't include biases? use weights dict instead?
         loss_L1 = tf.contrib.layers.apply_regularization(l1_regularizer, weights_list=trainable_var)
     else:
-        loss_L1 = tf.zeros([1, ], dtype=tf.float64)
+        loss_L1 = tf.zeros([1, ], dtype=tf.float32)
 
     # tf.nn.l2_loss returns number
     l2_regularizer = tf.add_n([tf.nn.l2_loss(v) for v in trainable_var if 'W' in v.name])
@@ -158,7 +158,7 @@ def define_regularization(params, trainable_var, loss, loss1, loss4, loss5):
 def try_net(data_val, params):
     # SET UP NETWORK
     phase = tf.placeholder(tf.bool, name='phase')
-    keep_prob = tf.placeholder(tf.float64, shape=[], name='keep_prob')
+    keep_prob = tf.placeholder(tf.float32, shape=[], name='keep_prob')
     x, x_noisy, y, partial_encoded_list, g_list, reconstructed_x, outer_reconst_x, weights, biases = net.create_koopman_net(
         phase, keep_prob, params)
 
@@ -181,12 +181,12 @@ def try_net(data_val, params):
 
     # LAUNCH GRAPH AND INITIALIZE
     # Use 50% of GPU
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)
+    #sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
     # Start with only as much GPU usage as needed and allow it to grow
-    # config = tf.ConfigProto()
-    # config.gpu_options.allow_growth = True
-    # sess = tf.Session(config=config)
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
     saver = tf.train.Saver()
 
     # Before starting, initialize the variables.  We will 'run' this first.
@@ -222,8 +222,7 @@ def try_net(data_val, params):
 
         if (params['data_train_len'] > 1) or (f == 0):
             # don't keep reloading data if always same
-            data_train = np.loadtxt(('./data/%s_train%d_x.csv' % (params['data_name'], file_num)), delimiter=',',
-                                    dtype=np.float64)
+            data_train = np.load(('./data/%s_train%d_x.npy' % (params['data_name'], file_num)))
             data_train_tensor = helperfns.stack_data(data_train, max_shifts_to_stack,
                                                      params['train_len_time'][file_num - 1])
             num_examples = data_train_tensor.shape[1]
@@ -259,7 +258,21 @@ def try_net(data_val, params):
             if step % 20 == 0:
                 # saves time to bunch operations with one run command (per feed_dict)
                 train_errors_dict = sess.run(losses, feed_dict=feed_dict_train_loss)
-                val_errors_dict = sess.run(losses, feed_dict=feed_dict_val)
+
+                val_dicts = []
+                num_val_traj = data_val_tensor.shape[1]/(params['len_time']-params['num_shifts'])
+                val_batch_size = int(num_val_traj/10)
+                for batch_num in xrange(10):
+                    batch_data_val = data_val_tensor[:, batch_num*val_batch_size:(batch_num+1)*val_batch_size, :]
+                    batch_data_val_noisy = batch_data_val.copy()
+                    feed_dict_val = {x: batch_data_val, x_noisy: batch_data_val_noisy, phase: 0, keep_prob: 1.0}
+                    batch_val_errors_dict = sess.run(losses, feed_dict=feed_dict_val)
+                    val_dicts.append(batch_val_errors_dict)
+
+                val_errors_dict = {}
+                for key in val_dicts[0].keys():
+                    val_errors_dict[key] = sum(d[key] for d in val_dicts) / len(val_dicts)
+
                 val_error = val_errors_dict['loss']
 
                 if val_error < (best_error - best_error * (10 ** (-5))):
@@ -325,7 +338,7 @@ def main_exp(params):
         os.makedirs(params['folder_name'])
 
     # data is num_steps x num_examples x n
-    data_val = np.loadtxt(('./data/%s_val_x.csv' % (params['data_name'])), delimiter=',', dtype=np.float64)
+    data_val = np.load(('./data/%s_val_x.npy' % (params['data_name'])))
 
     try_net(data_val, params)
     tf.reset_default_graph()

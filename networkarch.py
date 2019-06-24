@@ -6,26 +6,26 @@ import helperfns
 
 def weight_variable(shape, var_name, distribution='tn', scale=0.1, first_guess=0):
     if distribution == 'tn':
-        initial = tf.truncated_normal(shape, stddev=scale, dtype=tf.float64) + first_guess
+        initial = tf.truncated_normal(shape, stddev=scale, dtype=tf.float32) + first_guess
     elif distribution == 'xavier':
         scale = 4 * np.sqrt(6.0 / (shape[0] + shape[1]))
-        initial = tf.random_uniform(shape, minval=-scale, maxval=scale, dtype=tf.float64)
+        initial = tf.random_uniform(shape, minval=-scale, maxval=scale, dtype=tf.float32)
     elif distribution == 'dl':
         # see page 295 of Goodfellow et al's DL book
         # divide by sqrt of m, where m is number of inputs
         scale = 1.0 / np.sqrt(shape[0])
-        initial = tf.random_uniform(shape, minval=-scale, maxval=scale, dtype=tf.float64)
+        initial = tf.random_uniform(shape, minval=-scale, maxval=scale, dtype=tf.float32)
     elif distribution == 'he':
         # from He, et al. ICCV 2015 (referenced in Andrew Ng's class)
         # divide by m, where m is number of inputs
         scale = np.sqrt(2.0 / shape[0])
-        initial = tf.random_normal(shape, mean=0, stddev=scale, dtype=tf.float64)
+        initial = tf.random_normal(shape, mean=0, stddev=scale, dtype=tf.float32)
     elif distribution == 'glorot_bengio':
         # see page 295 of Goodfellow et al's DL book
         scale = np.sqrt(6.0 / (shape[0] + shape[1]))
-        initial = tf.random_uniform(shape, minval=-scale, maxval=scale, dtype=tf.float64)
+        initial = tf.random_uniform(shape, minval=-scale, maxval=scale, dtype=tf.float32)
     else:
-        initial = np.loadtxt(distribution, delimiter=',', dtype=np.float64)
+        initial = np.loadtxt(distribution, delimiter=',', dtype=np.float32)
         if (initial.shape[0] != shape[0]) or (initial.shape[1] != shape[1]):
             raise ValueError(
                 'Initialization for %s is not correct shape. Expecting (%d,%d), but find (%d,%d) in %s.' % (
@@ -35,15 +35,15 @@ def weight_variable(shape, var_name, distribution='tn', scale=0.1, first_guess=0
 
 def bias_variable(shape, var_name, distribution=''):
     if distribution:
-        initial = np.genfromtxt(distribution, delimiter=',', dtype=np.float64)
+        initial = np.genfromtxt(distribution, delimiter=',', dtype=np.float32)
     else:
-        initial = tf.constant(0.0, shape=shape, dtype=tf.float64)
+        initial = tf.constant(0.0, shape=shape, dtype=tf.float32)
     return tf.Variable(initial, name=var_name)
 
 
 def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_guess, add_identity):
-    x = tf.placeholder(tf.float64, [num_shifts_max + 1, None, widths[0]])
-    x_noisy = tf.placeholder(tf.float64, [num_shifts_max + 1, None, widths[0]])
+    x = tf.placeholder(tf.float32, [num_shifts_max + 1, None, widths[0]])
+    x_noisy = tf.placeholder(tf.float32, [num_shifts_max + 1, None, widths[0]])
     # nx1 patch, number of input channels, number of output channels (features)
     # m = number of hidden units
 
@@ -57,7 +57,7 @@ def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_gues
         biases['bE%d' % (i + 1)] = bias_variable([widths[i + 1], ], var_name='bE%d' % (i + 1),
                                                  distribution=dist_biases[i])
     if add_identity:
-        identity_weight = tf.Variable(initial_value=add_identity, name='alphaE', dtype=np.float64, trainable=False)
+        identity_weight = tf.Variable(initial_value=add_identity, name='alphaE', dtype=np.float32, trainable=False)
     else:
         identity_weight = 0
 
@@ -117,7 +117,7 @@ def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0, a
                                                       distribution=dist_biases[ind - 1])
 
     if add_identity:
-        identity_weight = tf.Variable(initial_value=add_identity, name='alphaD', dtype=np.float64, trainable=False)
+        identity_weight = tf.Variable(initial_value=add_identity, name='alphaD', dtype=np.float32, trainable=False)
     else:
         identity_weight = 0
 
