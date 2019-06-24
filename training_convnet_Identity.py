@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 
 import helperfns_convnet
-import networkarch_convnet as net
+import networkarch_convnet_Identity as net
 
 
 def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_reconst_x, params):
@@ -186,7 +186,7 @@ def try_net(data_val, params):
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
-    # sess = tf.Session()
+    #sess = tf.Session()
     saver = tf.train.Saver()
 
     # Before starting, initialize the variables.  We will 'run' this first.
@@ -254,7 +254,7 @@ def try_net(data_val, params):
             if step % 20 == 0:
                 # saves time to bunch operations with one run command (per feed_dict)
                 train_errors_dict = sess.run(losses, feed_dict=feed_dict_train_loss)
-
+                
                 val_dicts = []
                 num_val_traj = data_val_tensor.shape[1]/(params['len_time']-params['num_shifts'])
                 val_batch_size = int(num_val_traj/10)
@@ -267,7 +267,7 @@ def try_net(data_val, params):
                 val_errors_dict = {}
                 for key in val_dicts[0].keys():
                     val_errors_dict[key] = sum(d[key] for d in val_dicts) / len(val_dicts)
-                
+
                 val_error = val_errors_dict['loss']
 
                 if val_error < (best_error - best_error * (10 ** (-5))):

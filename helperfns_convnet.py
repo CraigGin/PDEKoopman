@@ -197,10 +197,10 @@ def add_noise(data, strength, rel_noise_flag):
 def save_files(sess, saver, csv_path, train_val_error, params):
     np.savetxt(csv_path, train_val_error, delimiter=',')
 
-    params['minTrain'] = np.min(train_val_error[:, 0])
-    params['minTest'] = np.min(train_val_error[:, 1])
-    params['minRegTrain'] = np.min(train_val_error[:, 2])
-    params['minRegTest'] = np.min(train_val_error[:, 3])
+    params['minTrain'] = np.nanmin(train_val_error[:, 0])
+    params['minTest'] = np.nanmin(train_val_error[:, 1])
+    params['minRegTrain'] = np.nanmin(train_val_error[:, 2])
+    params['minRegTest'] = np.nanmin(train_val_error[:, 3])
     print "min train: %.12f, min val: %.12f, min reg. train: %.12f, min reg. val: %.12f" % (
         params['minTrain'], params['minTest'], params['minRegTrain'], params['minRegTest'])
     save_params(params)
