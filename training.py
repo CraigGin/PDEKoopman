@@ -1,5 +1,6 @@
 import os
 import time
+import datetime
 
 import numpy as np
 import tensorflow as tf
@@ -190,8 +191,14 @@ def try_net(data_val, params):
     saver = tf.train.Saver()
 
     # Before starting, initialize the variables.  We will 'run' this first.
-    init = tf.global_variables_initializer()
-    sess.run(init)
+    if not params['restore']:
+        init = tf.global_variables_initializer()
+        sess.run(init)
+    else:
+        saver.restore(sess, params['model_restore_path'])
+        params['exp_suffix'] = '_' + datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S_%f")
+        exp_name = params['data_name'] + params['exp_suffix']
+        params['model_path'] = "./%s/%s_model.ckpt" % (params['folder_name'], exp_name)
 
     csv_path = params['model_path'].replace('model', 'error')
     csv_path = csv_path.replace('ckpt', 'csv')
