@@ -486,3 +486,5 @@ def freq_vector(dim):
     kv[1::2] = np.array(range(1,max_freq+1))
 
     return kv
+
+

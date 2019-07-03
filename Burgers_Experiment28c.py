@@ -21,8 +21,6 @@ params['data_train_len'] = 20  # Number of training data sets
 params['num_evals'] = 128  # how many eigenvalues / how many frequencies / what's the low dimension
 l = params['num_evals']
 
-# Something for type of initialization????
-
 params['network_arch'] = 'convnet' # Choose 'convnet' or 'fully_connected'
 
 # If fully-connected layers:
@@ -43,6 +41,7 @@ params['n_outputs'] = 128
 params['seed_middle'] = 0  # Seed middle three layers with heat equation (Fourier transform, diagonal matrix, inverse FT)
 params['fix_middle'] = 0   # Can only fix middle layers if you also seed middle
 params['add_identity'] = 1
+params['initialization'] = 'He' # Choose 'He' or 'identity'
 
 params['relative_loss'] = 1
 params['auto_first'] = 1 # Train autoencoder only for first 5 minutes
