@@ -8,7 +8,7 @@ import tensorflow as tf
 
 params = {}
 params['data_name'] = 'Burgers_Eqn_exp28'  ## FILL IN HERE (from file name)
-params['folder_name'] = 'Burgers_exp28c'  # UPDATE so goes in own folder
+params['folder_name'] = 'Burgers_exp28g'  # UPDATE so goes in own folder
 params['restore'] = 0 # Restore a previous model
 
 n = 128  # number of inputs (spatial discretization)
@@ -41,7 +41,7 @@ params['n_outputs'] = 128
 params['seed_middle'] = 0  # Seed middle three layers with heat equation (Fourier transform, diagonal matrix, inverse FT)
 params['fix_middle'] = 0   # Can only fix middle layers if you also seed middle
 params['add_identity'] = 1
-params['initialization'] = 'identity' # Choose 'He' or 'identity'
+params['initialization'] = 'He' # Choose 'He' or 'identity'
 
 params['relative_loss'] = 1
 params['auto_first'] = 1 # Train autoencoder only for first 5 minutes

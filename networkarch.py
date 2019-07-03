@@ -95,7 +95,7 @@ def encoder_apply_one_shift_cn(x, n_inputs, conv1_filters, n_middle, L1_lam, L2_
                             regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam))
         hidden1_encode_scaled= a_encode*hidden1_encode
         hidden2_encode = tf.reduce_sum(hidden1_encode_scaled, axis=2, name="hidden2_encode")
-        hidden3_encode = tf.layers.dense(hidden2_encode, n_inputs, name="hidden3_encode", activation=tf.exp, 
+        hidden3_encode = tf.layers.dense(hidden2_encode, n_inputs, name="hidden3_encode", activation=None, 
                             kernel_initializer=initialization,
                             kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
                             bias_regularizer=None)
@@ -103,7 +103,8 @@ def encoder_apply_one_shift_cn(x, n_inputs, conv1_filters, n_middle, L1_lam, L2_
             identity_weight = tf.get_variable(name='alphaE', dtype=np.float32, initializer=tf.constant(add_identity, dtype=tf.float32), trainable=False)
         else:
             identity_weight = 0
-        partially_encoded = tf.add(hidden3_encode,tf.scalar_mul(identity_weight, x), name="v_k")
+        add_iden = tf.add(hidden3_encode,tf.scalar_mul(identity_weight, x))
+        partially_encoded = tf.exp(add_iden, name="v_k")
 
         FT = create_FT_layer(n_inputs, n_middle, seed_middle, fix_middle, L1_lam, L2_lam)
         encoded = tf.matmul(partially_encoded,FT, name="vk_hat")
@@ -289,7 +290,12 @@ def encoder_apply_one_shift_fc(x, widths, act_type, log_space, L1_lam, L2_lam, r
             identity_weight = tf.get_variable(name='alphaE', dtype=np.float32, initializer=tf.constant(add_identity, dtype=tf.float32), trainable=False)
         else:
             identity_weight = 0
-        partially_encoded = tf.add(prev_layer,tf.scalar_mul(identity_weight, x), name="v_k")
+        add_iden = tf.add(prev_layer,tf.scalar_mul(identity_weight, x))
+
+        if not log_space:
+            partially_encoded = tf.identity(add_iden, name="v_k")
+        else:
+            partially_encoded  = tf.exp(add_iden, name="v_k")
 
         FT = create_FT_layer(widths[num_encoder_weights-1], widths[num_encoder_weights], seed_middle, fix_middle, L1_lam, L2_lam)
         encoded = tf.matmul(partially_encoded,FT, name="vk_hat")

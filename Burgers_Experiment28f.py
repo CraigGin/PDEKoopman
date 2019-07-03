@@ -8,7 +8,7 @@ import tensorflow as tf
 
 params = {}
 params['data_name'] = 'Burgers_Eqn_exp28'  ## FILL IN HERE (from file name)
-params['folder_name'] = 'Burgers_exp28c'  # UPDATE so goes in own folder
+params['folder_name'] = 'Burgers_exp28f'  # UPDATE so goes in own folder
 params['restore'] = 0 # Restore a previous model
 
 n = 128  # number of inputs (spatial discretization)
@@ -21,14 +21,14 @@ params['data_train_len'] = 20  # Number of training data sets
 params['num_evals'] = 128  # how many eigenvalues / how many frequencies / what's the low dimension
 l = params['num_evals']
 
-params['network_arch'] = 'convnet' # Choose 'convnet' or 'fully_connected'
+params['network_arch'] = 'fully_connected' # Choose 'convnet' or 'fully_connected'
 
 # If fully-connected layers:
 params['act_type'] = tf.nn.relu
 params['widths'] = [n, n, n, n, n, n, l, l, n, n, n, n, n, n]
 params['linear_encoder_layers'] = [4, 5]  # 0 is relu, 1&2 are linear
 params['linear_decoder_layers'] = [0, 5]  # 0 linear, 1 relu, 2 linear
-params['log_space'] = 0  # 1 if you want to take a logarithm at beginning of encoder/decoder
+params['log_space'] = 1  # 1 if you want to take a logarithm at beginning of encoder/decoder
 
 # If convolutional neural net
 params['n_inputs'] = 128
@@ -40,7 +40,8 @@ params['n_outputs'] = 128
 # For either type of architecture
 params['seed_middle'] = 0  # Seed middle three layers with heat equation (Fourier transform, diagonal matrix, inverse FT)
 params['fix_middle'] = 0   # Can only fix middle layers if you also seed middle
-params['add_identity'] = 1
+params['add_identity'] = 0
+# He initialization = tf.contrib.layers.variance_scaling_initializer(), Identity initialization = identity_initializer()
 params['initialization'] = 'identity' # Choose 'He' or 'identity'
 
 params['relative_loss'] = 1

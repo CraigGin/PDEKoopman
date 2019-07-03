@@ -287,6 +287,7 @@ def try_net(data_val, params):
                 train_val_error[count, 15] = val_errors_dict['reg_loss']
                 if np.isnan(train_val_error[count, 3]):
                     params['stop_condition'] = 'Regularized validation loss is nan'
+                    print('Regularized validation loss is nan')
                     finished = 1
                     break
 
