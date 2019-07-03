@@ -1,87 +1,72 @@
 import numpy as np
 import tensorflow as tf
+from scipy.linalg import dft
+from functools import partial
 
 import helperfns
 
+def identity_initializer():
+    def _initializer(shape, dtype=tf.float32, partition_info=None):
+        if len(shape) == 1:
+            return tf.constant(0., dtype=dtype, shape=shape)
+        elif len(shape) == 2 and shape[0] == shape[1]:
+            return tf.constant(helperfns.identity_seed(shape[0],shape[1]))
+        else:
+            raise ValueError("Error, initializer expected a different shape")
+    return _initializer
 
-def weight_variable(shape, var_name, distribution='tn', scale=0.1, first_guess=0):
-    if distribution == 'tn':
-        initial = tf.truncated_normal(shape, stddev=scale, dtype=tf.float32) + first_guess
-    elif distribution == 'xavier':
-        scale = 4 * np.sqrt(6.0 / (shape[0] + shape[1]))
-        initial = tf.random_uniform(shape, minval=-scale, maxval=scale, dtype=tf.float32)
-    elif distribution == 'dl':
-        # see page 295 of Goodfellow et al's DL book
-        # divide by sqrt of m, where m is number of inputs
-        scale = 1.0 / np.sqrt(shape[0])
-        initial = tf.random_uniform(shape, minval=-scale, maxval=scale, dtype=tf.float32)
-    elif distribution == 'he':
-        # from He, et al. ICCV 2015 (referenced in Andrew Ng's class)
-        # divide by m, where m is number of inputs
-        scale = np.sqrt(2.0 / shape[0])
-        initial = tf.random_normal(shape, mean=0, stddev=scale, dtype=tf.float32)
-    elif distribution == 'glorot_bengio':
-        # see page 295 of Goodfellow et al's DL book
-        scale = np.sqrt(6.0 / (shape[0] + shape[1]))
-        initial = tf.random_uniform(shape, minval=-scale, maxval=scale, dtype=tf.float32)
+
+def create_FT_layer(n_inputs, n_middle, seed_middle, fix_middle, L1_lam, L2_lam):
+    if not seed_middle:
+        FT = tf.get_variable("FT", initializer=helperfns.identity_seed(n_inputs,n_middle), 
+                            regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            trainable=True, dtype=tf.float32)        
     else:
-        initial = np.loadtxt(distribution, delimiter=',', dtype=np.float32)
-        if (initial.shape[0] != shape[0]) or (initial.shape[1] != shape[1]):
-            raise ValueError(
-                'Initialization for %s is not correct shape. Expecting (%d,%d), but find (%d,%d) in %s.' % (
-                    var_name, shape[0], shape[1], initial.shape[0], initial.shape[1], distribution))
-    return tf.Variable(initial, name=var_name)
+        if not fix_middle:
+            FT = tf.get_variable("FT", initializer=helperfns.reduced_DFT(n_inputs,n_middle),
+                            regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            trainable=True, dtype=tf.float32)
+        else:
+            FT = tf.get_variable("FT", initializer=helperfns.reduced_DFT(n_inputs,n_middle),
+                            regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            trainable=False, dtype=tf.float32)
 
+    return FT   
 
-def bias_variable(shape, var_name, distribution=''):
-    if distribution:
-        initial = np.genfromtxt(distribution, delimiter=',', dtype=np.float32)
+def create_IFT_layer(n_middle, n_outputs, seed_middle, fix_middle, L1_lam, L2_lam):
+    if not seed_middle:
+        IFT = tf.get_variable("IFT", initializer=helperfns.identity_seed(n_middle,n_outputs), 
+                            regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            trainable=True, dtype=tf.float32)  
     else:
-        initial = tf.constant(0.0, shape=shape, dtype=tf.float32)
-    return tf.Variable(initial, name=var_name)
+        if not fix_middle:
+            IFT = tf.get_variable("IFT", initializer=helperfns.expand_IDFT(n_middle,n_outputs),
+                            regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            trainable=True, dtype=tf.float32)
+        else:
+            IFT = tf.get_variable("IFT", initializer=helperfns.expand_IDFT(n_middle,n_outputs),
+                            regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            trainable=False, dtype=tf.float32)
 
+    return IFT  
 
-def encoder(widths, dist_weights, dist_biases, scale, num_shifts_max, first_guess, add_identity):
-    x = tf.placeholder(tf.float32, [num_shifts_max + 1, None, widths[0]])
-    x_noisy = tf.placeholder(tf.float32, [num_shifts_max + 1, None, widths[0]])
-    # nx1 patch, number of input channels, number of output channels (features)
-    # m = number of hidden units
-
-    weights = dict()
-    biases = dict()
-
-    for i in np.arange(len(widths) - 1):
-        weights['WE%d' % (i + 1)] = weight_variable([widths[i], widths[i + 1]], var_name='WE%d' % (i + 1),
-                                                    distribution=dist_weights[i], scale=scale, first_guess=first_guess)
-        # TODO: first guess for biases too (and different ones for different weights)
-        biases['bE%d' % (i + 1)] = bias_variable([widths[i + 1], ], var_name='bE%d' % (i + 1),
-                                                 distribution=dist_biases[i])
-    if add_identity:
-        identity_weight = tf.Variable(initial_value=add_identity, name='alphaE', dtype=np.float32, trainable=False)
-    else:
-        identity_weight = 0
-
-    return x, x_noisy, weights, biases, identity_weight
-
-
-def encoder_apply(x, weights, biases, identity_weight, act_type, batch_flag, phase, out_flag, shifts_middle, keep_prob,
-                  linear_encoder_layers, num_shifts_max, name='E',
-                  num_encoder_weights=1):
+def encoder_apply_cn(x, n_inputs, conv1_filters, n_middle, L1_lam, L2_lam, shifts_middle, num_shifts_max, fix_middle, seed_middle, add_identity):
     partially_encoded_list = []
     encoded_list = []
     num_shifts_middle = len(shifts_middle)
     for j in np.arange(num_shifts_max + 1):
         if j == 0:
             shift = 0
+            reuse = False
         else:
             shift = shifts_middle[j - 1]
+            reuse = True
         if isinstance(x, (list,)):
             x_shift = x[shift]
         else:
             x_shift = tf.squeeze(x[shift, :, :])
-        partially_encoded, encoded = encoder_apply_one_shift(x_shift, weights, biases, identity_weight, act_type,
-                                                             batch_flag, phase, out_flag, keep_prob,
-                                                             linear_encoder_layers, name, num_encoder_weights)
+        partially_encoded, encoded = encoder_apply_one_shift_cn(x_shift, n_inputs, conv1_filters, n_middle, L1_lam, L2_lam, reuse, 
+                                                            fix_middle, seed_middle, add_identity)
         partially_encoded_list.append(partially_encoded)
         if j <= num_shifts_middle:
             encoded_list.append(encoded)
@@ -89,278 +74,342 @@ def encoder_apply(x, weights, biases, identity_weight, act_type, batch_flag, pha
     return partially_encoded_list, encoded_list
 
 
-def encoder_apply_one_shift(x, weights, biases, identity_weight, act_type, batch_flag, phase, out_flag, keep_prob,
-                            linear_encoder_layers, name='E',
-                            num_encoder_weights=1):
-    prev_layer = tf.identity(x)
-    for i in np.arange(num_encoder_weights - 1):
-        prev_layer = tf.matmul(prev_layer, weights['W%s%d' % (name, i + 1)]) + biases['b%s%d' % (name, i + 1)]
-        if i not in linear_encoder_layers:
-            prev_layer = helperfns.apply_act_fn(prev_layer, act_type)
+def encoder_apply_one_shift_cn(x, n_inputs, conv1_filters, n_middle, L1_lam, L2_lam, reuse, fix_middle, seed_middle, add_identity):
 
-    partially_encoded = prev_layer + tf.scalar_mul(identity_weight, x)
-    encoded = tf.matmul(partially_encoded, weights['W%s%d' % (name, num_encoder_weights)]) + biases[
-        'b%s%d' % (name, num_encoder_weights)]
+    my_conv_layer = partial(tf.layers.conv1d, activation=tf.nn.relu, 
+                             kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                             bias_regularizer=None)
+
+    with tf.variable_scope("encoder", reuse=reuse):
+        log_uk = tf.log(x+2, name="log_uk")
+        log_uk_reshaped = tf.reshape(log_uk, shape=[-1, n_inputs, 1], name="log_uk_reshaped")
+        hidden1_encode = my_conv_layer(log_uk_reshaped, filters=conv1_filters, kernel_size=1, strides=1, padding="SAME",
+                            kernel_initializer=tf.constant_initializer(np.eye(1, dtype=np.float32)), name="hidden1_encode")
+        a_encode = tf.get_variable(name="a_encode", dtype=tf.float32, 
+                            initializer=np.ones(conv1_filters, dtype=np.float32)/conv1_filters, 
+                            regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam))
+        hidden1_encode_scaled= a_encode*hidden1_encode
+        hidden2_encode = tf.reduce_sum(hidden1_encode_scaled, axis=2, name="hidden2_encode")
+        hidden3_encode = tf.layers.dense(hidden2_encode, n_inputs, name="hidden3_encode", activation=tf.exp, 
+                            kernel_initializer=tf.constant_initializer(np.eye(n_inputs, dtype=np.float32)),
+                            kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            bias_regularizer=None)
+        if add_identity:
+            identity_weight = tf.get_variable(name='alphaE', dtype=np.float32, initializer=tf.constant(add_identity, dtype=tf.float32), trainable=False)
+        else:
+            identity_weight = 0
+        partially_encoded = tf.add(hidden3_encode,tf.scalar_mul(identity_weight, x), name="v_k")
+
+        FT = create_FT_layer(n_inputs, n_middle, seed_middle, fix_middle, L1_lam, L2_lam)
+        encoded = tf.matmul(partially_encoded,FT, name="vk_hat")
 
     return partially_encoded, encoded
 
-
-def decoder(widths, dist_weights, dist_biases, scale, name='D', first_guess=0, add_identity=0):
-    weights = dict()
-    biases = dict()
-    for i in np.arange(len(widths) - 1):
-        ind = i + 1
-        weights['W%s%d' % (name, ind)] = weight_variable([widths[i], widths[i + 1]], var_name='W%s%d' % (name, ind),
-                                                         distribution=dist_weights[ind - 1], scale=scale,
-                                                         first_guess=first_guess)
-        biases['b%s%d' % (name, ind)] = bias_variable([widths[i + 1], ], var_name='b%s%d' % (name, ind),
-                                                      distribution=dist_biases[ind - 1])
-
-    if add_identity:
-        identity_weight = tf.Variable(initial_value=add_identity, name='alphaD', dtype=np.float32, trainable=False)
-    else:
-        identity_weight = 0
-
-    return weights, biases, identity_weight
-
-
-def decoder_apply(x, weights, biases, identity_weight, act_type, batch_flag, phase, keep_prob, num_decoder_weights,
-                  linear_decoder_layers):
+def decoder_apply_cn(x, n_middle, conv2_filters, n_outputs, L1_lam, L2_lam, reuse, fix_middle, seed_middle, add_identity):
     prev_layer = tf.identity(x)
-    prev_layer = tf.matmul(prev_layer, weights['WD1']) + biases['bD1']
-    if 0 not in linear_decoder_layers:
-        prev_layer = helperfns.apply_act_fn(prev_layer, act_type)
-    output = outer_decoder_apply(prev_layer, weights, biases, identity_weight, act_type, batch_flag, phase, keep_prob,
-                                 num_decoder_weights,
-                                 linear_decoder_layers)
+
+    with tf.variable_scope("decoder_inner", reuse=reuse):
+        IFT = create_IFT_layer(n_middle, n_outputs, seed_middle, fix_middle, L1_lam, L2_lam)
+        prev_layer = tf.matmul(prev_layer, IFT) 
+        
+    output = outer_decoder_apply_cn(prev_layer, conv2_filters, n_outputs, L1_lam, L2_lam, reuse, add_identity)
 
     return output
 
+def outer_decoder_apply_cn(x, conv2_filters, n_outputs, L1_lam, L2_lam, reuse, add_identity):
 
-def outer_decoder_apply(x, weights, biases, identity_weight, act_type, batch_flag, phase, keep_prob,
-                        num_decoder_weights,
-                        linear_decoder_layers):
-    prev_layer = tf.identity(x)
-    for i in np.arange(1, num_decoder_weights - 1):
-        prev_layer = tf.matmul(prev_layer, weights['WD%d' % (i + 1)]) + biases['bD%d' % (i + 1)]
-        if i not in linear_decoder_layers:
-            prev_layer = helperfns.apply_act_fn(prev_layer, act_type)
+    my_conv_layer = partial(tf.layers.conv1d, activation=tf.nn.relu, 
+                             kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                             bias_regularizer=None)
 
-    output = tf.matmul(prev_layer, weights['WD%d' % num_decoder_weights]) + biases['bD%d' % num_decoder_weights]
-    output = output + tf.scalar_mul(identity_weight, x)
+    with tf.variable_scope("decoder_outer", reuse=reuse):
+        log_vkplus1 = tf.log(x, name="log_vkplus1")
+        log_vkplus1_reshaped = tf.reshape(log_vkplus1, shape=[-1, n_outputs, 1], name="log_vkplus1_reshaped")
+        hidden1_decode = my_conv_layer(log_vkplus1_reshaped, filters=conv2_filters, kernel_size=4, strides=1, padding="SAME",
+                                kernel_initializer=tf.constant_initializer(np.eye(4, dtype=np.float32)), name="hidden1_decode")
+        a_decode = tf.get_variable(name="a_decode", dtype=tf.float32, initializer=np.ones(conv2_filters, dtype=np.float32)/conv2_filters, 
+                                regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam))
+        hidden1_decode_scaled= a_decode*hidden1_decode
+        hidden2_decode = tf.reduce_sum(hidden1_decode_scaled, axis=2, name="hidden2_decode")
+        hidden3_decode = tf.layers.dense(hidden2_decode, n_outputs, name="hidden3_decode", activation=None, 
+                                kernel_initializer=tf.constant_initializer(np.eye(n_outputs, dtype=np.float32)),
+                                kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                                bias_regularizer=None)
+        if add_identity:
+            identity_weight = tf.get_variable(name='alphaD', dtype=np.float32, initializer=tf.constant(add_identity, dtype=tf.float32), trainable=False)
+        else:
+            identity_weight = 0
+
+        output = tf.add(hidden3_decode,tf.scalar_mul(identity_weight, x), name="outputs")
 
     return output
-
-
-def form_complex_conjugate_block(omegas, delta_t):
-    scale = tf.exp(omegas[:, 1] * delta_t)
-    entry11 = tf.multiply(scale, tf.cos(omegas[:, 0] * delta_t))
-    entry12 = tf.multiply(scale, tf.sin(omegas[:, 0] * delta_t))
-    row1 = tf.stack([entry11, -entry12], axis=1)  # [None, 2]
-    row2 = tf.stack([entry12, entry11], axis=1)  # [None, 2]
-    return tf.stack([row1, row2], axis=2)  # [None, 2, 2] put one row below other
-
-
-def varying_multiply(y, omegas, delta_t, num_real, num_complex_pairs):
-    # multiply on the left: y*omegas
-
-    k = y.shape[1]
-
-    complex_list = []
-
-    # first, Jordan blocks for each pair of complex conjugate eigenvalues
-    for j in np.arange(num_complex_pairs):
-        ind = 2 * j
-        ystack = tf.stack([y[:, ind:ind + 2], y[:, ind:ind + 2]], axis=2)  # [None, 2, 2]
-        L_stack = form_complex_conjugate_block(omegas[j], delta_t)
-        elmtwise_prod = tf.multiply(ystack, L_stack)
-        complex_list.append(tf.reduce_sum(elmtwise_prod, 1))
-
-    if len(complex_list):
-        # each element in list output_list is shape [None, 2]
-        complex_part = tf.concat(complex_list, axis=1)
-
-    # next, diagonal structure for each real eigenvalue
-    # faster to not explicitly create stack of diagonal matrices L
-    real_list = []
-    for j in np.arange(num_real):
-        ind = 2 * num_complex_pairs + j
-        temp = y[:, ind]
-        real_list.append(tf.multiply(temp[:, np.newaxis], tf.exp(omegas[num_complex_pairs + j] * delta_t)))
-
-    if len(real_list):
-        real_part = tf.concat(real_list, axis=1)
-
-    if len(complex_list) and len(real_list):
-        return tf.concat([complex_part, real_part], axis=1)
-    elif len(complex_list):
-        return complex_part
-
-    else:
-        return real_part
-
-
-def create_omega_net(phase, keep_prob, params, ycoords):
-    # ycoords is [None, 2] or [None, 3], etc. (temp. only handle 2-diml or 3-diml case)
-
-    weights = dict()
-    biases = dict()
-
-    for j in np.arange(params['num_complex_pairs']):
-        temp_name = 'OC%d_' % (j + 1)
-        create_one_omega_net(params, temp_name, weights, biases, params['widths_omega_complex'])
-
-    for j in np.arange(params['num_real']):
-        temp_name = 'OR%d_' % (j + 1)
-        create_one_omega_net(params, temp_name, weights, biases, params['widths_omega_real'])
-
-    omegas = omega_net_apply(phase, keep_prob, params, ycoords, weights, biases)
-
-    return omegas, weights, biases
-
-
-def create_one_omega_net(params, temp_name, weights, biases, widths):
-    weightsO, biasesO = decoder(widths, dist_weights=params['dist_weights_omega'],
-                                dist_biases=params['dist_biases_omega'], scale=params['scale_omega'], name=temp_name,
-                                first_guess=params['first_guess_omega'], add_identity=params['add_identity'])
-    weights.update(weightsO)
-    biases.update(biasesO)
-
-
-def omega_net_apply(phase, keep_prob, params, ycoords, weights, biases):
-    omegas = []
-
-    for j in np.arange(params['num_complex_pairs']):
-        temp_name = 'OC%d_' % (j + 1)
-        ind = 2 * j
-        omegas.append(
-            omega_net_apply_one(phase, keep_prob, params, ycoords[:, ind:ind + 2], weights, biases, temp_name))
-    for j in np.arange(params['num_real']):
-        temp_name = 'OR%d_' % (j + 1)
-        ind = 2 * params['num_complex_pairs'] + j
-        omegas.append(omega_net_apply_one(phase, keep_prob, params, ycoords[:, ind], weights, biases, temp_name))
-
-    return omegas
-
-
-def omega_net_apply_one(phase, keep_prob, params, ycoords, weights, biases, name):
-    if len(ycoords.shape) == 1:
-        ycoords = ycoords[:, np.newaxis]
-
-    if ycoords.shape[1] == 2:
-        # complex conjugate pair
-        input = tf.reduce_sum(tf.square(ycoords), axis=1, keep_dims=True)
-
-    else:
-        input = ycoords
-
-    omegas = encoder_apply_one_shift(input, weights, biases, identity_weight=0, act_type=['act_type'],
-                                     batch_flag=['batch_flag'], phase=phase,
-                                     out_flag=0, keep_prob=keep_prob,
-                                     linear_encoder_layers=params['linear_omega_layers'], name=name,
-                                     num_encoder_weights=params['num_omega_weights'])
-
-    return omegas
-
-
-def create_koopman_net(phase, keep_prob, params):
+    
+def create_koopman_convnet(params):
     max_shifts_to_stack = helperfns.num_shifts_in_stack(params)
 
-    k = params['widths'][params['depth'] + 1]
-    encoder_widths = params['widths'][0:params['depth'] + 2]  # n ... k
-    x, x_noisy, weights, biases, identity_weight_encoder = encoder(encoder_widths, dist_weights=params['dist_weights'][
-                                                                                                0:params['depth'] + 1],
-                                                                   dist_biases=params['dist_biases'][
-                                                                               0:params['depth'] + 1],
-                                                                   scale=params['scale'],
-                                                                   num_shifts_max=max_shifts_to_stack,
-                                                                   first_guess=params['first_guess'],
-                                                                   add_identity=params['add_identity'])
+    n_inputs = params['n_inputs']
+    conv1_filters = params['conv1_filters']
+    n_middle = params['n_middle']
+    conv2_filters = params['conv2_filters']
+    n_outputs = params['n_outputs']
+
+    x = tf.placeholder(tf.float32, shape=[max_shifts_to_stack + 1, None, n_inputs], name="x")
 
     # returns list: encode each shift
-    partial_encoded_list, g_list = encoder_apply(x_noisy, weights, biases, identity_weight_encoder, params['act_type'],
-                                                 params['batch_flag'], phase, out_flag=0,
-                                                 shifts_middle=params['shifts_middle'], keep_prob=keep_prob,
-                                                 linear_encoder_layers=params['linear_encoder_layers'],
-                                                 num_encoder_weights=params['num_encoder_weights'],
-                                                 num_shifts_max=max_shifts_to_stack)
+    partial_encoded_list, g_list = encoder_apply_cn(x, n_inputs, conv1_filters, n_middle, L1_lam=params['L1_lam'], L2_lam=params['L2_lam'],
+                                                shifts_middle=params['shifts_middle'], num_shifts_max=max_shifts_to_stack, 
+                                                fix_middle=params['fix_middle'], seed_middle=params['seed_middle'], 
+                                                add_identity=params['add_identity'])
 
-    if not params['autoencoder_only']:
-        if not params['fixed_L']:
-            # g_list_omega is list of omegas, one entry for each middle_shift of x (like g_list)
-            omegas, weights_omega, biases_omega = create_omega_net(phase, keep_prob, params, g_list[0])
-            # params['num_omega_weights'] = len(weights_omega) already done inside create_omega_net
-            weights.update(weights_omega)
-            biases.update(biases_omega)
+    if not params['seed_middle']:
+        if not params['diag_L']:
+            with tf.variable_scope("dynamics", reuse=False):
+                L = tf.get_variable("L", initializer=np.eye(n_middle, dtype=np.float32), trainable=True, dtype=tf.float32)
         else:
+            with tf.variable_scope("dynamics", reuse=False):
+                diag = tf.get_variable("diag", initializer=np.ones(n_middle, dtype=np.float32), trainable=True, dtype=tf.float32)
+                L = tf.diag(diag, name="L")
+    else:
+        # Fix/seed middle as heat equation
+        kv = helperfns.freq_vector(n_middle)
+        dt = params['delta_t']
+        if not params['fix_middle']:
             if not params['diag_L']:
-                L = weight_variable([k, k], var_name='L', distribution=params['dist_L'], scale=params['scale_L'],
-                                    first_guess=params['first_guess_L'])
+                with tf.variable_scope("dynamics", reuse=False):
+                    L = tf.get_variable("L", initializer=np.float32(np.diag(np.exp(-params['mu']*kv*kv*dt))), trainable=True, dtype=tf.float32)
             else:
-                diag = weight_variable([k, ], var_name='diag_L', distribution=params['dist_L'], scale=params['scale_L'],
-                                       first_guess=params['first_guess_L'])
-                L = tf.diag(diag)
-            weights['L'] = L
-
-    num_widths = len(params['widths'])
-    decoder_widths = params['widths'][params['depth'] + 2:num_widths]  # k ... n
-    weights_decoder, biases_decoder, identity_weight_decoder = decoder(decoder_widths,
-                                                                       dist_weights=params['dist_weights'][
-                                                                                    params['depth'] + 2:],
-                                                                       dist_biases=params['dist_biases'][
-                                                                                   params['depth'] + 2:],
-                                                                       scale=params['scale'],
-                                                                       add_identity=params['add_identity'])
-    weights.update(weights_decoder)
-    biases.update(biases_decoder)
+                with tf.variable_scope("dynamics", reuse=False):
+                    diag = tf.get_variable("diag", initializer=np.float32(np.exp(-params['mu']*kv*kv*dt)), trainable=True, dtype=tf.float32)
+                    L = tf.diag(diag, name="L")
+        else:
+            with tf.variable_scope("dynamics", reuse=False):
+                mu = tf.get_variable("mu", shape=[1], initializer=tf.contrib.layers.variance_scaling_initializer(), trainable=True, dtype=tf.float32)
+                L = tf.diag(tf.exp(-mu*kv*kv*dt), name="L")
 
     y = []
     # y[0] is x[0,:,:] encoded and then decoded (no stepping forward)
     encoded_layer = g_list[0]
 
-    y.append(
-        decoder_apply(encoded_layer, weights, biases, identity_weight_decoder, params['act_type'], params['batch_flag'],
-                      phase, keep_prob,
-                      params['num_decoder_weights'], params['linear_decoder_layers']))
+    y.append(decoder_apply_cn(encoded_layer, n_middle, conv2_filters, n_outputs, L1_lam=params['L1_lam'], L2_lam=params['L2_lam'], reuse=False, 
+                            fix_middle=params['fix_middle'], seed_middle=params['seed_middle'], add_identity=params['add_identity']))
 
     reconstructed_x = []
     for j in np.arange(max_shifts_to_stack + 1):
-        reconstructed_x.append(
-            decoder_apply(g_list[j], weights, biases, identity_weight_decoder, params['act_type'], params['batch_flag'],
-                          phase, keep_prob, params['num_decoder_weights'], params['linear_decoder_layers']))
+        reconstructed_x.append(decoder_apply_cn(g_list[j], n_middle, conv2_filters, n_outputs, L1_lam=params['L1_lam'], L2_lam=params['L2_lam'],                           
+                            reuse=True, fix_middle=params['fix_middle'], seed_middle=params['seed_middle'], add_identity=params['add_identity']))
 
     outer_reconst_x = []
     for j in np.arange(max_shifts_to_stack + 1):
-        outer_reconst_x.append(
-            outer_decoder_apply(partial_encoded_list[j], weights, biases, identity_weight_decoder, params['act_type'],
-                                params['batch_flag'],
-                                phase, keep_prob, params['num_decoder_weights'], params['linear_decoder_layers']))
+        outer_reconst_x.append(outer_decoder_apply_cn(partial_encoded_list[j], conv2_filters, n_outputs, 
+                                L1_lam=params['L1_lam'], L2_lam=params['L2_lam'], reuse=True, add_identity=params['add_identity']))
 
     if not params['autoencoder_only']:
         # g_list_omega[0] is for x[0,:,:], pairs with g_list[0]=encoded_layer
-        if params['fixed_L']:
-            advanced_layer = tf.matmul(encoded_layer, weights['L'])
-        else:
-            advanced_layer = varying_multiply(encoded_layer, omegas, params['delta_t'], params['num_real'],
-                                              params['num_complex_pairs'])
+        advanced_layer = tf.matmul(encoded_layer, L)
 
         for j in np.arange(max(params['shifts'])):  # loops 0, 1, ...
             # considering penalty on subset of yk+1, yk+2, yk+3, ... yk+20
             if (j + 1) in params['shifts']:
-                y.append(decoder_apply(advanced_layer, weights, biases, identity_weight_decoder, ['act_type'],
-                                       params['batch_flag'], phase,
-                                       keep_prob, params['num_decoder_weights'], params['linear_decoder_layers']))
+                y.append(decoder_apply_cn(advanced_layer, n_middle, conv2_filters, n_outputs, L1_lam=params['L1_lam'], L2_lam=params['L2_lam'], 
+                                        reuse=True, fix_middle=params['fix_middle'], seed_middle=params['seed_middle'],
+                                        add_identity=params['add_identity']))
 
-            if params['fixed_L']:
-                advanced_layer = tf.matmul(advanced_layer, weights['L'])
-            else:
-                omegas = omega_net_apply(phase, keep_prob, params, advanced_layer, weights, biases)
-                advanced_layer = varying_multiply(advanced_layer, omegas, params['delta_t'], params['num_real'],
-                                                  params['num_complex_pairs'])
+            advanced_layer = tf.matmul(advanced_layer, L)
 
     if len(y) != (len(params['shifts']) + 1):
         print "messed up looping over shifts! %r" % params['shifts']
         raise ValueError(
             'length(y) not proper length: check create_koopman_net code and how defined params[shifts] in experiment')
 
-    return x, x_noisy, y, partial_encoded_list, g_list, reconstructed_x, outer_reconst_x, weights, biases
+    return x, y, partial_encoded_list, g_list, reconstructed_x, outer_reconst_x
+
+def encoder_apply_fc(x, widths, linear_encoder_layers, act_type, log_space, L1_lam, L2_lam, shifts_middle, num_shifts_max, 
+                    fix_middle, seed_middle, add_identity, num_encoder_weights):
+    partially_encoded_list = []
+    encoded_list = []
+    num_shifts_middle = len(shifts_middle)
+    for j in np.arange(num_shifts_max + 1):
+        if j == 0:
+            shift = 0
+            reuse = False
+        else:
+            shift = shifts_middle[j - 1]
+            reuse = True
+        if isinstance(x, (list,)):
+            x_shift = x[shift]
+        else:
+            x_shift = tf.squeeze(x[shift, :, :])
+        partially_encoded, encoded = encoder_apply_one_shift_fc(x_shift, widths, act_type, log_space, L1_lam, L2_lam, reuse, 
+                                                            fix_middle, seed_middle, add_identity, num_encoder_weights, linear_encoder_layers)
+        partially_encoded_list.append(partially_encoded)
+        if j <= num_shifts_middle:
+            encoded_list.append(encoded)
+
+    return partially_encoded_list, encoded_list
+
+def encoder_apply_one_shift_fc(x, widths, act_type, log_space, L1_lam, L2_lam, reuse, fix_middle, seed_middle, add_identity, num_encoder_weights, linear_encoder_layers):
+    prev_layer = tf.identity(x)
+
+    he_init = tf.contrib.layers.variance_scaling_initializer()
+    my_dense_layer = partial(tf.layers.dense, activation=act_type, kernel_initializer=identity_initializer(),
+                            kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            bias_regularizer=None)
+    my_linear_layer = partial(tf.layers.dense, activation=None, kernel_initializer=identity_initializer(),
+                            kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            bias_regularizer=None)
+
+    with tf.variable_scope("encoder", reuse=reuse):
+        if not log_space:
+            prev_layer = tf.identity(prev_layer, name="log_uk")
+        else:
+            prev_layer = tf.log(prev_layer+2, name="log_uk")
+        
+        for i in np.arange(num_encoder_weights - 1):
+            if i not in linear_encoder_layers:
+                prev_layer = my_dense_layer(tf.reshape(prev_layer,[-1,widths[i]]), widths[i+1], name="hidden%d_encode" % (i + 1))
+            else:
+                prev_layer = my_linear_layer(tf.reshape(prev_layer,[-1,widths[i]]), widths[i+1], name="hidden%d_encode" % (i + 1))
+
+        if add_identity:
+            identity_weight = tf.get_variable(name='alphaE', dtype=np.float32, initializer=tf.constant(add_identity, dtype=tf.float32), trainable=False)
+        else:
+            identity_weight = 0
+        partially_encoded = tf.add(prev_layer,tf.scalar_mul(identity_weight, x), name="v_k")
+
+        FT = create_FT_layer(widths[num_encoder_weights-1], widths[num_encoder_weights], seed_middle, fix_middle, L1_lam, L2_lam)
+        encoded = tf.matmul(partially_encoded,FT, name="vk_hat")
+
+    return partially_encoded, encoded
+
+def decoder_apply_fc(x, widths, linear_decoder_layers, act_type, log_space, L1_lam, L2_lam, reuse,
+                    fix_middle, seed_middle, add_identity, num_decoder_weights):
+    prev_layer = tf.identity(x)
+
+    with tf.variable_scope("decoder_inner", reuse=reuse):
+        IFT = create_IFT_layer(widths[-(num_decoder_weights+1)], widths[-1], seed_middle, fix_middle, L1_lam, L2_lam)
+        prev_layer = tf.matmul(prev_layer, IFT) 
+        
+    output = outer_decoder_apply_fc(prev_layer, widths, linear_decoder_layers, act_type, log_space, L1_lam, L2_lam, reuse, 
+                                    add_identity, num_decoder_weights)
+
+    return output
+
+def outer_decoder_apply_fc(x, widths, linear_decoder_layers, act_type, log_space, L1_lam, L2_lam, reuse,  
+                           add_identity, num_decoder_weights):
+    prev_layer = tf.identity(x)
+
+    he_init = tf.contrib.layers.variance_scaling_initializer()
+    my_dense_layer = partial(tf.layers.dense, activation=act_type, kernel_initializer=he_init,
+                             kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                             bias_regularizer=None)
+    my_linear_layer = partial(tf.layers.dense, activation=None, kernel_initializer=he_init,
+                             kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                             bias_regularizer=None)
+
+    with tf.variable_scope("decoder_outer", reuse=reuse):
+        if not log_space:
+            prev_layer = tf.identity(prev_layer, name="log_vkplus1")
+        else:
+            prev_layer = tf.log(prev_layer, name="log_vkplus1")
+
+        for i in np.arange(num_decoder_weights - 1):
+            widths_i = num_decoder_weights + 2 + i
+            if i not in linear_decoder_layers:
+                prev_layer = my_dense_layer(tf.reshape(prev_layer,[-1,widths[widths_i]]), widths[widths_i+1], name="hidden%d_decode" % (i + 1))
+            else:
+                prev_layer = my_linear_layer(tf.reshape(prev_layer,[-1,widths[widths_i]]), widths[widths_i+1], name="hidden%d_decode" % (i + 1))
+
+        if add_identity:
+            identity_weight = tf.get_variable(name='alphaD', dtype=np.float32, initializer=tf.constant(add_identity, dtype=tf.float32), trainable=False)
+        else:
+            identity_weight = 0
+        output = tf.add(prev_layer,tf.scalar_mul(identity_weight, x), name="outputs")
+
+    return output
+
+def create_koopman_fcnet(params):
+    max_shifts_to_stack = helperfns.num_shifts_in_stack(params)
+
+    x = tf.placeholder(tf.float32, shape=[max_shifts_to_stack + 1, None, params['widths'][0]], name="x")
+
+    # returns list: encode each shift
+    partial_encoded_list, g_list = encoder_apply_fc(x, widths=params['widths'], linear_encoder_layers=params['linear_encoder_layers'], 
+                                                act_type=params['act_type'], log_space=params['log_space'], 
+                                                L1_lam=params['L1_lam'], L2_lam=params['L2_lam'],
+                                                shifts_middle=params['shifts_middle'], num_shifts_max=max_shifts_to_stack, 
+                                                fix_middle=params['fix_middle'], seed_middle=params['seed_middle'], 
+                                                add_identity=params['add_identity'], num_encoder_weights=params['num_encoder_weights'])
+
+    n_middle = params['num_evals']
+    if not params['seed_middle']:
+        if not params['diag_L']:
+            with tf.variable_scope("dynamics", reuse=False):
+                L = tf.get_variable("L", initializer=np.eye(n_middle, dtype=np.float32), trainable=True, dtype=tf.float32)
+        else:
+            with tf.variable_scope("dynamics", reuse=False):
+                diag = tf.get_variable("diag", initializer=np.ones(n_middle, dtype=np.float32), trainable=True, dtype=tf.float32)
+                L = tf.diag(diag, name="L")
+    else:
+        # Fix/seed middle as heat equation
+        kv = helperfns.freq_vector(n_middle)
+        dt = params['delta_t']
+        if not params['fix_middle']:
+            if not params['diag_L']:
+                with tf.variable_scope("dynamics", reuse=False):
+                    L = tf.get_variable("L", initializer=np.float32(np.diag(np.exp(-params['mu']*kv*kv*dt))), trainable=True, dtype=tf.float32)
+            else:
+                with tf.variable_scope("dynamics", reuse=False):
+                    diag = tf.get_variable("diag", initializer=np.float32(np.exp(-params['mu']*kv*kv*dt)), trainable=True, dtype=tf.float32)
+                    L = tf.diag(diag, name="L")
+        else:
+            with tf.variable_scope("dynamics", reuse=False):
+                mu = tf.get_variable("mu", shape=[1], initializer=tf.contrib.layers.variance_scaling_initializer(), trainable=True, dtype=tf.float32)
+                L = tf.diag(tf.exp(-mu*kv*kv*dt), name="L")
+
+    y = []
+    # y[0] is x[0,:,:] encoded and then decoded (no stepping forward)
+    encoded_layer = g_list[0]
+
+    y.append(decoder_apply_fc(encoded_layer, widths=params['widths'], linear_decoder_layers=params['linear_decoder_layers'], 
+                              act_type=params['act_type'], log_space=params['log_space'], 
+                              L1_lam=params['L1_lam'], L2_lam=params['L2_lam'], reuse=False, 
+                              fix_middle=params['fix_middle'], seed_middle=params['seed_middle'], 
+                              add_identity=params['add_identity'], num_decoder_weights=params['num_decoder_weights']))
+
+    reconstructed_x = []
+
+    for j in np.arange(max_shifts_to_stack + 1):
+        reconstructed_x.append(decoder_apply_fc(g_list[j], widths=params['widths'], linear_decoder_layers=params['linear_decoder_layers'], 
+                              act_type=params['act_type'], log_space=params['log_space'], 
+                              L1_lam=params['L1_lam'], L2_lam=params['L2_lam'], reuse=True, 
+                              fix_middle=params['fix_middle'], seed_middle=params['seed_middle'], 
+                              add_identity=params['add_identity'], num_decoder_weights=params['num_decoder_weights']))
+
+    outer_reconst_x = []
+    for j in np.arange(max_shifts_to_stack + 1):
+        outer_reconst_x.append(outer_decoder_apply_fc(partial_encoded_list[j], widths=params['widths'], 
+                              linear_decoder_layers=params['linear_decoder_layers'], act_type=params['act_type'], 
+                              log_space=params['log_space'], L1_lam=params['L1_lam'], L2_lam=params['L2_lam'], reuse=True, 
+                              add_identity=params['add_identity'], num_decoder_weights=params['num_decoder_weights']))
+
+    if not params['autoencoder_only']:
+        # g_list_omega[0] is for x[0,:,:], pairs with g_list[0]=encoded_layer
+        advanced_layer = tf.matmul(encoded_layer, L)
+
+        for j in np.arange(max(params['shifts'])):  # loops 0, 1, ...
+            # considering penalty on subset of yk+1, yk+2, yk+3, ... yk+20
+            if (j + 1) in params['shifts']:
+                y.append(decoder_apply_fc(advanced_layer, widths=params['widths'], linear_decoder_layers=params['linear_decoder_layers'], 
+                              act_type=params['act_type'], log_space=params['log_space'], 
+                              L1_lam=params['L1_lam'], L2_lam=params['L2_lam'], reuse=True, 
+                              fix_middle=params['fix_middle'], seed_middle=params['seed_middle'], 
+                              add_identity=params['add_identity'], num_decoder_weights=params['num_decoder_weights']))
+
+            advanced_layer = tf.matmul(advanced_layer, L)
+
+    if len(y) != (len(params['shifts']) + 1):
+        print "messed up looping over shifts! %r" % params['shifts']
+        raise ValueError(
+            'length(y) not proper length: check create_koopman_net code and how defined params[shifts] in experiment')
+
+    return x, y, partial_encoded_list, g_list, reconstructed_x, outer_reconst_x

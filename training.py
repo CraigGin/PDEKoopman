@@ -9,12 +9,30 @@ import helperfns
 import networkarch as net
 
 
-def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_reconst_x, weights, biases, params, phase,
-                keep_prob):
+def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_reconst_x, params):
     # Minimize the mean squared errors.
     # subtraction and squaring element-wise, then average over both dimensions
     # n columns
     # average of each row (across columns), then average the rows
+    with tf.variable_scope("dynamics", reuse=True):
+        if not params['fix_middle']:
+            if not params['diag_L']:
+                L = tf.get_variable("L")
+            else:
+                diag = tf.get_variable("diag")
+                L = tf.diag(diag, name="L")
+        else:
+            kv = helperfns.freq_vector(params['n_middle'])
+            dt = params['delta_t']
+            mu = tf.get_variable("mu")
+            L = tf.diag(tf.exp(-mu*kv*kv*dt), name="L")
+        
+    with tf.variable_scope("encoder", reuse=True):
+        FT = tf.get_variable("FT")
+
+    with tf.variable_scope("decoder_inner", reuse=True):
+        IFT = tf.get_variable("IFT")
+
     denominator_nonzero = 10 ** (-5)
 
     # autoencoder loss
@@ -53,14 +71,7 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
     loss3 = tf.zeros([1, ], dtype=tf.float32)
     if params['linearity_loss_lam']:
         count_shifts_middle = 0
-
-        if params['fixed_L']:
-            next_step = tf.matmul(g_list[0], weights['L'])
-        else:
-            omegas = net.omega_net_apply(phase, keep_prob, params, g_list[0], weights, biases)
-            next_step = net.varying_multiply(g_list[0], omegas, params['delta_t'], params['num_real'],
-                                             params['num_complex_pairs'])
-
+        next_step = tf.matmul(g_list[0], L)
         for j in np.arange(max(params['shifts_middle'])):
             if (j + 1) in params['shifts_middle']:
                 # multiply g_list[0] by L (j+1) times
@@ -74,13 +85,9 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
                     tf.reduce_mean(tf.reduce_mean(tf.square(next_step - g_list[count_shifts_middle + 1]), 1)),
                     loss3_denominator)
                 count_shifts_middle += 1
-
-            if params['fixed_L']:
-                next_step = tf.matmul(next_step, weights['L'])
-            else:
-                omegas = net.omega_net_apply(phase, keep_prob, params, next_step, weights, biases)
-                next_step = net.varying_multiply(next_step, omegas, params['delta_t'], params['num_real'],
-                                                 params['num_complex_pairs'])
+            
+            next_step = tf.matmul(next_step, L)
+            
         loss3 = loss3 / params['num_shifts_middle']
 
     # inner-autoencoder loss
@@ -94,9 +101,10 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
             else:
                 loss4_denominator = tf.to_double(1.0)
 
-            temp = tf.matmul(partial_encoded_list[shift], weights['WE%d' % params['num_encoder_weights']]) + biases[
-                'bE%d' % params['num_encoder_weights']]
-            temp = tf.matmul(temp, weights['WD1']) + biases['bD1']
+            
+
+            temp = tf.sin(tf.matmul(partial_encoded_list[shift], FT))
+            temp = tf.sin(tf.matmul(temp, IFT))
             mean_squared_error = tf.reduce_mean(tf.reduce_mean(tf.square(partial_encoded_list[shift] - temp), 1))
             loss4 += params['inner_autoencoder_loss_lam'] * tf.truediv(mean_squared_error, loss4_denominator)
         loss4 = loss4 / num_shifts_total
@@ -117,63 +125,40 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
             loss5 += params['outer_autoencoder_loss_lam'] * tf.truediv(mean_squared_error, loss5_denominator)
         loss5 = loss5 / num_shifts_total
 
-        # inf norm on autoencoder error
-    if params['relative_loss']:
-        Linf1_den = tf.norm(tf.norm(tf.squeeze(x[0, :, :]), axis=1, ord=np.inf), ord=np.inf) + denominator_nonzero
-        Linf2_den = tf.norm(tf.norm(tf.squeeze(x[1, :, :]), axis=1, ord=np.inf), ord=np.inf) + denominator_nonzero
-    else:
-        Linf1_den = tf.to_double(1.0)
-        Linf2_den = tf.to_double(1.0)
-    Linf1_penalty = tf.truediv(
-        tf.norm(tf.norm(y[0] - tf.squeeze(x[0, :, :]), axis=1, ord=np.inf), ord=np.inf), Linf1_den)
-    if x.shape[0] > 1:
-        Linf2_penalty = tf.truediv(
-            tf.norm(tf.norm(y[1] - tf.squeeze(x[1, :, :]), axis=1, ord=np.inf), ord=np.inf), Linf2_den)
-    else:
-        Linf2_penalty = tf.zeros([1, ], dtype=tf.float32)
-    loss_Linf = params['Linf_lam'] * (Linf1_penalty + Linf2_penalty)
+    loss_list = [loss1, loss2, loss3, loss4, loss5]
+    loss = tf.add_n(loss_list, name="loss")
 
-    loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss_Linf
+    return loss1, loss2, loss3, loss4, loss5, loss
 
-    return loss1, loss2, loss3, loss4, loss5, loss_Linf, loss
-
-
-def define_regularization(params, trainable_var, loss, loss1, loss4, loss5):
-    if params['L1_lam']:
-        l1_regularizer = tf.contrib.layers.l1_regularizer(scale=params['L1_lam'], scope=None)
-        # TODO: don't include biases? use weights dict instead?
-        loss_L1 = tf.contrib.layers.apply_regularization(l1_regularizer, weights_list=trainable_var)
-    else:
-        loss_L1 = tf.zeros([1, ], dtype=tf.float32)
-
+def define_regularization(params, loss, loss1, loss4, loss5):
     # tf.nn.l2_loss returns number
-    l2_regularizer = tf.add_n([tf.nn.l2_loss(v) for v in trainable_var if 'W' in v.name])
-    loss_L2 = params['L2_lam'] * l2_regularizer
+    reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+    reg_loss= tf.add_n(reg_losses)
+    
+    regularized_loss = loss + reg_loss
+    regularized_loss1 = loss1 + reg_loss + loss4 + loss5
 
-    regularized_loss = loss + loss_L1 + loss_L2
-    regularized_loss1 = loss1 + loss_L1 + loss_L2 + loss4 + loss5
-
-    return loss_L1, loss_L2, regularized_loss, regularized_loss1
+    return reg_loss, regularized_loss, regularized_loss1
 
 
 def try_net(data_val, params):
     # SET UP NETWORK
-    phase = tf.placeholder(tf.bool, name='phase')
-    keep_prob = tf.placeholder(tf.float32, shape=[], name='keep_prob')
-    x, x_noisy, y, partial_encoded_list, g_list, reconstructed_x, outer_reconst_x, weights, biases = net.create_koopman_net(
-        phase, keep_prob, params)
+    if params['network_arch'] == 'convnet':
+        x, y, partial_encoded_list, g_list, reconstructed_x, outer_reconst_x = net.create_koopman_convnet(params)
+    elif params['network_arch'] == 'fully_connected':
+        x, y, partial_encoded_list, g_list, reconstructed_x, outer_reconst_x = net.create_koopman_fcnet(params)
+    else: 
+        raise ValueError("Error, network_arch must be either convnet or fully_connected")
 
     max_shifts_to_stack = helperfns.num_shifts_in_stack(params)
 
     # DEFINE LOSS FUNCTION
     trainable_var = tf.trainable_variables()
-    loss1, loss2, loss3, loss4, loss5, loss_Linf, loss = define_loss(x, y, partial_encoded_list, g_list,
-                                                                     reconstructed_x, outer_reconst_x, weights, biases,
-                                                                     params, phase, keep_prob)
-    loss_L1, loss_L2, regularized_loss, regularized_loss1 = define_regularization(params, trainable_var, loss, loss1, loss4, loss5)
-    losses = {'loss1': loss1, 'loss2': loss2, 'loss3': loss3, 'loss4': loss4, 'loss5': loss5, 'loss_Linf': loss_Linf,
-              'loss': loss,
-              'loss_L1': loss_L1, 'loss_L2': loss_L2, 'regularized_loss': regularized_loss,
+    loss1, loss2, loss3, loss4, loss5, loss = define_loss(x, y, partial_encoded_list, g_list,
+                                                                     reconstructed_x, outer_reconst_x, params)
+    reg_loss, regularized_loss, regularized_loss1 = define_regularization(params, loss, loss1, loss4, loss5)
+    losses = {'loss1': loss1, 'loss2': loss2, 'loss3': loss3, 'loss4': loss4, 'loss5': loss5,
+              'loss': loss, 'reg_loss': reg_loss, 'regularized_loss': regularized_loss,
               'regularized_loss1': regularized_loss1}
 
     # CHOOSE OPTIMIZATION ALGORITHM
@@ -181,16 +166,21 @@ def try_net(data_val, params):
     optimizer_autoencoder = helperfns.choose_optimizer(params, regularized_loss1, trainable_var)
 
     # LAUNCH GRAPH AND INITIALIZE
-    # Use 50% of GPU
-    #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)
-    #sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    # Use specified fraction of GPU Memory
+    # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
+    # sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+    
     # Start with only as much GPU usage as needed and allow it to grow
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
+    
+    # Use all of GPU memory
+    # sess = tf.Session()
+
     saver = tf.train.Saver()
 
-    # Before starting, initialize the variables.  We will 'run' this first.
+    # Before starting, initialize the variables.  
     if not params['restore']:
         init = tf.global_variables_initializer()
         sess.run(init)
@@ -211,10 +201,6 @@ def try_net(data_val, params):
     best_error = 10000
 
     data_val_tensor = helperfns.stack_data(data_val, max_shifts_to_stack, params['val_len_time'])
-    if params['denoising']:
-        data_val_tensor_noisy = helperfns.add_noise(data_val_tensor, params['denoising'], params['rel_noise_flag'])
-    else:
-        data_val_tensor_noisy = data_val_tensor.copy()
 
     start = time.time()
     finished = 0
@@ -246,16 +232,10 @@ def try_net(data_val, params):
             else:
                 offset = 0
             batch_data_train = data_train_tensor[:, offset:(offset + params['batch_size']), :]
-            if params['denoising']:
-                batch_data_train_noisy = helperfns.add_noise(batch_data_train, params['denoising'],
-                                                             params['rel_noise_flag'])
-            else:
-                batch_data_train_noisy = batch_data_train.copy()
-
-            feed_dict_train = {x: batch_data_train, x_noisy: batch_data_train_noisy, phase: 1,
-                               keep_prob: params['dropout_rate']}
-            feed_dict_train_loss = {x: batch_data_train, x_noisy: batch_data_train_noisy, phase: 1, keep_prob: 1.0}
-            feed_dict_val = {x: data_val_tensor, x_noisy: data_val_tensor_noisy, phase: 0, keep_prob: 1.0}
+     
+            feed_dict_train = {x: batch_data_train}
+            feed_dict_train_loss = {x: batch_data_train}
+            feed_dict_val = {x: data_val_tensor}
 
             if (not params['been5min']) and params['auto_first']:
                 sess.run(optimizer_autoencoder, feed_dict=feed_dict_train)
@@ -271,15 +251,14 @@ def try_net(data_val, params):
                 val_batch_size = int(num_val_traj/10)
                 for batch_num in xrange(10):
                     batch_data_val = data_val_tensor[:, batch_num*val_batch_size:(batch_num+1)*val_batch_size, :]
-                    batch_data_val_noisy = batch_data_val.copy()
-                    feed_dict_val = {x: batch_data_val, x_noisy: batch_data_val_noisy, phase: 0, keep_prob: 1.0}
+                    feed_dict_val = {x: batch_data_val}
                     batch_val_errors_dict = sess.run(losses, feed_dict=feed_dict_val)
                     val_dicts.append(batch_val_errors_dict)
 
                 val_errors_dict = {}
                 for key in val_dicts[0].keys():
                     val_errors_dict[key] = sum(d[key] for d in val_dicts) / len(val_dicts)
-
+                
                 val_error = val_errors_dict['loss']
 
                 if val_error < (best_error - best_error * (10 ** (-5))):
@@ -304,16 +283,12 @@ def try_net(data_val, params):
                 train_val_error[count, 11] = val_errors_dict['loss4']
                 train_val_error[count, 12] = train_errors_dict['loss5']
                 train_val_error[count, 13] = val_errors_dict['loss5']
-                train_val_error[count, 14] = train_errors_dict['loss_Linf']
-                train_val_error[count, 15] = val_errors_dict['loss_Linf']
-                if np.isnan(train_val_error[count, 14]):
-                    params['stop_condition'] = 'loss_Linf is nan'
+                train_val_error[count, 14] = train_errors_dict['reg_loss']
+                train_val_error[count, 15] = val_errors_dict['reg_loss']
+                if np.isnan(train_val_error[count, 3]):
+                    params['stop_condition'] = 'Regularized validation loss is nan'
                     finished = 1
                     break
-                train_val_error[count, 16] = train_errors_dict['loss_L1']
-                train_val_error[count, 17] = val_errors_dict['loss_L1']
-                train_val_error[count, 18] = train_errors_dict['loss_L2']
-                train_val_error[count, 19] = val_errors_dict['loss_L2']
 
                 if step % 200 == 0:
                     train_val_error_trunc = train_val_error[range(count), :]
@@ -321,7 +296,7 @@ def try_net(data_val, params):
                 finished, save_now = helperfns.check_progress(start, best_error, params)
                 if save_now:
                     train_val_error_trunc = train_val_error[range(count), :]
-                    helperfns.save_files(sess, saver, csv_path, train_val_error_trunc, params, weights, biases)
+                    helperfns.save_files(sess, saver, csv_path, train_val_error_trunc, params)
                 if finished:
                     break
                 count = count + 1
@@ -335,7 +310,7 @@ def try_net(data_val, params):
     print(train_val_error)
     params['time_exp'] = time.time() - start
     saver.restore(sess, params['model_path'])
-    helperfns.save_files(sess, saver, csv_path, train_val_error, params, weights, biases)
+    helperfns.save_files(sess, saver, csv_path, train_val_error, params)
 
 
 def main_exp(params):

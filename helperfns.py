@@ -184,38 +184,13 @@ def check_progress(start, best_error, params):
 
     return finished, save_now
 
-
-def add_noise(data, strength, rel_noise_flag):
-    if rel_noise_flag:
-        # multiply element-wise by data to rescale the noise
-        data = data + strength * np.random.randn(data.shape[0], data.shape[1], data.shape[2]) * data
-    else:
-        data = data + strength * np.random.randn(data.shape[0], data.shape[1], data.shape[2])
-    return data
-
-
-def save_files(sess, saver, csv_path, train_val_error, params, weights, biases):
+def save_files(sess, saver, csv_path, train_val_error, params):
     np.savetxt(csv_path, train_val_error, delimiter=',')
 
-    for key, value in weights.iteritems():
-        np.savetxt(csv_path.replace('error', key), np.asarray(sess.run(value)), delimiter=',')
-    for key, value in biases.iteritems():
-        np.savetxt(csv_path.replace('error', key), np.asarray(sess.run(value)), delimiter=',')
-
-    if params['add_identity']:
-        graph = tf.get_default_graph()
-        alphaE = graph.get_tensor_by_name("alphaE:0")
-        alphaE_reshaped = np.asarray(sess.run(alphaE)).reshape((1, 1))
-        np.savetxt(csv_path.replace('error', "alphaE"), alphaE_reshaped, delimiter=',')
-
-        alphaD = graph.get_tensor_by_name("alphaD:0")
-        alphaD_reshaped = np.asarray(sess.run(alphaD)).reshape((1, 1))
-        np.savetxt(csv_path.replace('error', "alphaD"), alphaD_reshaped, delimiter=',')
-
-    params['minTrain'] = np.min(train_val_error[:, 0])
-    params['minTest'] = np.min(train_val_error[:, 1])
-    params['minRegTrain'] = np.min(train_val_error[:, 2])
-    params['minRegTest'] = np.min(train_val_error[:, 3])
+    params['minTrain'] = np.nanmin(train_val_error[:, 0])
+    params['minTest'] = np.nanmin(train_val_error[:, 1])
+    params['minRegTrain'] = np.nanmin(train_val_error[:, 2])
+    params['minRegTest'] = np.nanmin(train_val_error[:, 3])
     print "min train: %.12f, min val: %.12f, min reg. train: %.12f, min reg. val: %.12f" % (
         params['minTrain'], params['minTest'], params['minRegTrain'], params['minRegTest'])
     save_params(params)
@@ -231,29 +206,15 @@ def save_params(params):
 def set_defaults(params):
     if 'add_identity' not in params:
         params['add_identity'] = 0
-    if 'fixed_L' not in params:
-        # default is that L does not vary
-        params['fixed_L'] = 0
     if 'diag_L' not in params:
         # default is that L is not forced to be diagonal
         params['diag_L'] = 0
-    if 'rel_noise_flag' not in params:
-        params['rel_noise_flag'] = 0
     if 'auto_first' not in params:
         params['auto_first'] = 0
-    if 'denoising' not in params:
-        params['denoising'] = 0.0
     if 'num_evals' not in params:
         raise KeyError("Error, must give number of evals: num_evals")
     if 'relative_loss' not in params:
         params['relative_loss'] = 0
-    if 'first_guess_omega' not in params:
-        params['first_guess_omega'] = 0
-    print params['widths']
-    if 'scale_omega' not in params:
-        params['scale_omega'] = 0.1
-    if 'first_guess' not in params:
-        params['first_guess'] = 0
     if 'num_passes_per_file' not in params:
         params['num_passes_per_file'] = 1000
     if 'num_steps_per_batch' not in params:
@@ -295,8 +256,6 @@ def set_defaults(params):
         params['dist_biases'] = 0
     if 'scale' not in params:
         params['scale'] = 0.1
-    if 'batch_flag' not in params:
-        params['batch_flag'] = 0
     if 'opt_alg' not in params:
         params['opt_alg'] = 'adam'
     if 'decay_rate' not in params:
@@ -453,46 +412,15 @@ def set_defaults(params):
             raise ValueError('doing autoencoder only, so should have num_shifts = 0')
         if params['num_shifts_middle']:
             raise ValueError('doing autoencoder only, so should have num_shifts_middle = 0')
-
-    else:
-        if 'num_real' not in params:
-            raise KeyError("Error, must give number of real eigenvalues: num_real")
-        if 'num_complex_pairs' not in params:
-            raise KeyError("Error, must give number of pairs of complex eigenvalues: num_complex_pairs")
-        if params['num_evals'] != (2 * params['num_complex_pairs'] + params['num_real']):
-            raise ValueError("Error, num_evals must equal 2*num_compex_pairs + num_real")
-        if params['fixed_L']:
-            if 'dist_L' not in params:
-                params['dist_L'] = 'tn'
-            if 'scale_L' not in params:
-                params['scale_L'] = 0.1
-            if 'first_guess_L' not in params:
-                params['first_guess_L'] = 0
-        else:
-            # if L is not fixed, have auxiliary network
-            if 'hidden_widths_omega' not in params:
-                raise KeyError("Error, must give hidden_widths for omega net")
-            params['widths_omega_complex'] = [1, ] + params['hidden_widths_omega'] + [2, ]
-            params['widths_omega_real'] = [1, ] + params['hidden_widths_omega'] + [1, ]
-            print params['widths_omega_complex']
-            print params['widths_omega_real']
-
-            params['num_omega_weights'] = len(params['widths_omega_real']) - 1
-            if 'linear_omega_layers' not in params:
-                # default is that only last layer is linear
-                params['linear_omega_layers'] = [params['num_omega_weights'] - 1, ]
-                print(params['linear_omega_layers'])
-
-            if 'dist_weights_omega' not in params:
-                params['dist_weights_omega'] = 'tn'
-            if 'dist_biases_omega' not in params:
-                params['dist_biases_omega'] = 0
-            if isinstance(params['dist_weights_omega'], basestring):
-                params['dist_weights_omega'] = [params['dist_weights_omega']] * (len(params['widths_omega_real']) - 1)
-            if isinstance(params['dist_biases_omega'], int):
-                params['dist_biases_omega'] = [params['dist_biases_omega']] * (len(params['widths_omega_real']) - 1)
     if 'mu' not in params:
-        params['mu'] = 1
+        params['mu'] = 1.0
+    if 'fix_middle' not in params:
+        params['fix_middle'] = 0
+    if 'seed_middle' not in params:
+        params['seed_middle'] = 0
+        params['fix_middle'] = 0
+    if 'restore' not in params:
+        params['restore'] = 0
     return params
 
 
@@ -505,12 +433,56 @@ def num_shifts_in_stack(params):
 
     return max_shifts_to_stack
 
+def identity_seed(n_rows,n_cols):
+    if n_rows >= n_cols:
+        A = np.zeros((n_rows,n_cols), dtype=np.float32)
+        for col in xrange(n_cols):
+            for row in xrange(col,col+n_rows-n_cols+1):
+                A[row,col] = 1.0/(n_rows-n_cols+1) 
+    else:
+        A = np.zeros((n_rows,n_cols), dtype=np.float32)
+        for row in xrange(n_rows):
+            for col in xrange(row,row+n_cols-n_rows+1):
+                A[row,col] = 1.0/(n_cols-n_rows+1) 
 
-def apply_act_fn(h1, act_type):
-    if act_type == 'sigmoid':
-        h1 = tf.sigmoid(h1)
-    elif act_type == 'relu':
-        h1 = tf.nn.relu(h1)
-    elif act_type == 'elu':
-        h1 = tf.nn.elu(h1)
-    return h1
+    return A    
+
+def DFT_matrix(dim):
+    DFT = dft(dim) 
+    rDFT = np.real(DFT)
+    iDFT = np.imag(DFT)
+    combinedDFT = rDFT[0,:]
+    for i in xrange(1,n_inputs/2):
+        combinedDFT = np.vstack((combinedDFT, rDFT[i,:]))
+        combinedDFT = np.vstack((combinedDFT, iDFT[i,:]))
+    combinedDFT = np.vstack((combinedDFT, rDFT[n_inputs/2,:])) 
+
+    return combinedDFT
+
+def reduced_DFT(large_dim,small_dim):
+    combinedDFT = DFT_matrix(large_dim)
+    Reduce = np.hstack((np.eye(small_dim),np.zeros((small_dim,large_dim-small_dim))))
+    Reduced_DFT = Reduce.dot(combinedDFT)
+    Reduced_DFT = np.float32(Reduced_DFT.T)
+
+    return Reduced_DFT
+
+def expand_IDFT(small_dim,large_dim):
+    combinedDFT = DFT_matrix(large_dim)
+    Expand = np.vstack((np.eye(small_dim),np.zeros((large_dim-small_dim,small_dim))))
+    inv_DFT = np.linalg.inv(combinedDFT)
+    Expand_IDFT = inv_DFT.dot(Expand)
+    Expand_IDFT = np.float32(Expand_IDFT.T)
+
+    return Expand_IDFT
+
+def freq_vector(dim):
+    max_freq = np.divide(dim,2)
+    kv = np.empty((dim,))
+    if dim % 2 == 0:
+        kv[::2] = np.array(range(max_freq))
+    else:
+        kv[::2] = np.array(range(max_freq+1))
+    kv[1::2] = np.array(range(1,max_freq+1))
+
+    return kv
