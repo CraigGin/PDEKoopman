@@ -36,94 +36,85 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
     denominator_nonzero = 10 ** (-5)
 
     # autoencoder loss
-    loss1 = tf.zeros([1, ], dtype=tf.float32)
     if params['autoencoder_loss_lam']:
         num_shifts_total = helperfns.num_shifts_in_stack(params) + 1
-        for shift in np.arange(num_shifts_total):
-            if params['relative_loss']:
-                loss1_denominator = tf.reduce_mean(
-                    tf.reduce_mean(tf.square(tf.squeeze(x[shift, :, :])), 1)) + denominator_nonzero
-            else:
-                loss1_denominator = tf.to_double(1.0)
-
-            mean_squared_error = tf.reduce_mean(
-                tf.reduce_mean(tf.square(reconstructed_x[shift] - tf.squeeze(x[shift, :, :])), 1))
-            loss1 += params['autoencoder_loss_lam'] * tf.truediv(mean_squared_error, loss1_denominator)
-        loss1 = loss1 / num_shifts_total
+        exact = tf.gather(x,np.arange(num_shifts_total))
+        pred = tf.gather(reconstructed_x,np.arange(num_shifts_total))
+        if params['relative_loss']:
+            loss1_denominator = tf.reduce_sum(tf.square(exact),2) + denominator_nonzero
+        else:
+            loss1_denominator = tf.to_double(1.0)
+        norm_squared = tf.reduce_sum(tf.square(exact - pred), 2)
+        rel_error = tf.truediv(norm_squared, loss1_denominator)
+        mse = tf.reduce_mean(rel_error)
+        loss1 = tf.multiply(params['autoencoder_loss_lam'],mse, name="loss1")
+    else:
+        loss1 = tf.zeros([], dtype=tf.float32, name="loss1")
 
     # gets dynamics (prediction loss)
-    loss2 = tf.zeros([1, ], dtype=tf.float32)
     if params['prediction_loss_lam']:
-
-        for j in np.arange(params['num_shifts']):
-            # xk+1, xk+2, xk+3
-            shift = params['shifts'][j]
-            if params['relative_loss']:
-                loss2_denominator = tf.reduce_mean(
-                    tf.reduce_mean(tf.square(tf.squeeze(x[shift, :, :])), 1)) + denominator_nonzero
-            else:
-                loss2_denominator = tf.to_double(1.0)
-            loss2 = loss2 + params['prediction_loss_lam'] * tf.truediv(
-                tf.reduce_mean(tf.reduce_mean(tf.square(y[j + 1] - tf.squeeze(x[shift, :, :])), 1)), loss2_denominator)
-        loss2 = loss2 / params['num_shifts']
+        exact = tf.gather(x,params['shifts'])
+        pred = tf.gather(y,params['shifts'])
+        if params['relative_loss']:
+            loss2_denominator = tf.reduce_sum(tf.square(exact),2) + denominator_nonzero
+        else:
+            loss2_denominator = tf.to_double(1.0)
+        norm_squared = tf.reduce_sum(tf.square(exact - pred), 2)
+        rel_error = tf.truediv(norm_squared, loss2_denominator)
+        mse = tf.reduce_mean(rel_error)
+        loss2 = tf.multiply(params['prediction_loss_lam'],mse, name="loss2")
+    else:
+        loss2 = tf.zeros([], dtype=tf.float32, name="loss2")
 
     # K linear
-    loss3 = tf.zeros([1, ], dtype=tf.float32)
+    loss3 = tf.zeros([], dtype=tf.float32)
     if params['linearity_loss_lam']:
         count_shifts_middle = 0
         next_step = tf.matmul(g_list[0], L)
         for j in np.arange(max(params['shifts_middle'])):
             if (j + 1) in params['shifts_middle']:
-                # multiply g_list[0] by L (j+1) times
-                # next_step = tf.matmul(g_list[0], L_pow)
                 if params['relative_loss']:
-                    loss3_denominator = tf.reduce_mean(
-                        tf.reduce_mean(tf.square(tf.squeeze(g_list[count_shifts_middle + 1])), 1)) + denominator_nonzero
+                    loss3_denominator = tf.reduce_sum(tf.square(g_list[count_shifts_middle + 1]), 1) + denominator_nonzero
                 else:
                     loss3_denominator = tf.to_double(1.0)
-                loss3 = loss3 + params['linearity_loss_lam'] * tf.truediv(
-                    tf.reduce_mean(tf.reduce_mean(tf.square(next_step - g_list[count_shifts_middle + 1]), 1)),
-                    loss3_denominator)
+                norm_squared = tf.reduce_sum(tf.square(next_step - g_list[count_shifts_middle + 1]), 1)
+                rel_error = tf.truediv(norm_squared,loss3_denominator)
+                loss3 = loss3 + params['linearity_loss_lam'] * tf.reduce_mean(rel_error)
                 count_shifts_middle += 1
             
             next_step = tf.matmul(next_step, L)
-            
-        loss3 = loss3 / params['num_shifts_middle']
+        loss3 = tf.truediv(loss3,tf.cast(params['num_shifts_middle'], tf.float32), name="loss3")
 
     # inner-autoencoder loss
-    loss4 = tf.zeros([1, ], dtype=tf.float32)
     if params['inner_autoencoder_loss_lam']:
-        num_shifts_total = helperfns.num_shifts_in_stack(params) + 1
-        for shift in np.arange(num_shifts_total):
-            if params['relative_loss']:
-                loss4_denominator = tf.reduce_mean(
-                    tf.reduce_mean(tf.square(partial_encoded_list[shift]), 1)) + denominator_nonzero
-            else:
-                loss4_denominator = tf.to_double(1.0)
-
-            
-
-            temp = tf.sin(tf.matmul(partial_encoded_list[shift], FT))
-            temp = tf.sin(tf.matmul(temp, IFT))
-            mean_squared_error = tf.reduce_mean(tf.reduce_mean(tf.square(partial_encoded_list[shift] - temp), 1))
-            loss4 += params['inner_autoencoder_loss_lam'] * tf.truediv(mean_squared_error, loss4_denominator)
-        loss4 = loss4 / num_shifts_total
+        exact = partial_encoded_list
+        encoded = tf.tensordot(partial_encoded_list,FT, axes=([2],[0]))
+        pred = tf.tensordot(encoded,IFT, axes=([2],[0]))
+        if params['relative_loss']:
+            loss4_denominator = tf.reduce_sum(tf.square(exact),2) + denominator_nonzero
+        else:
+            loss4_denominator = tf.to_double(1.0)
+        norm_squared = tf.reduce_sum(tf.square(exact - pred), 2)
+        rel_error = tf.truediv(norm_squared, loss4_denominator)
+        mse = tf.reduce_mean(rel_error)
+        loss4 = tf.multiply(params['inner_autoencoder_loss_lam'],mse, name="loss4")
+    else:
+        loss4 = tf.zeros([], dtype=tf.float32, name="loss4")
 
     # outer-autoencoder loss
-    loss5 = tf.zeros([1, ], dtype=tf.float32)
     if params['outer_autoencoder_loss_lam']:
-        num_shifts_total = helperfns.num_shifts_in_stack(params) + 1
-        for shift in np.arange(num_shifts_total):
-            if params['relative_loss']:
-                loss5_denominator = tf.reduce_mean(
-                    tf.reduce_mean(tf.square(tf.squeeze(x[shift, :, :])), 1)) + denominator_nonzero
-            else:
-                loss5_denominator = tf.to_double(1.0)
-
-            mean_squared_error = tf.reduce_mean(
-                tf.reduce_mean(tf.square(outer_reconst_x[shift] - tf.squeeze(x[shift, :, :])), 1))
-            loss5 += params['outer_autoencoder_loss_lam'] * tf.truediv(mean_squared_error, loss5_denominator)
-        loss5 = loss5 / num_shifts_total
+        exact = x
+        pred = outer_reconst_x 
+        if params['relative_loss']:
+            loss5_denominator = tf.reduce_sum(tf.square(exact),2) + denominator_nonzero
+        else:
+            loss5_denominator = tf.to_double(1.0)
+        norm_squared = tf.reduce_sum(tf.square(exact - pred), 2)
+        rel_error = tf.truediv(norm_squared, loss5_denominator)
+        mse = tf.reduce_mean(rel_error)
+        loss5 = tf.multiply(params['outer_autoencoder_loss_lam'],mse, name="loss5")
+    else:
+        loss5 = tf.zeros([], dtype=tf.float32, name="loss5")        
 
     loss_list = [loss1, loss2, loss3, loss4, loss5]
     loss = tf.add_n(loss_list, name="loss")
@@ -312,6 +303,8 @@ def try_net(data_val, params):
     params['time_exp'] = time.time() - start
     saver.restore(sess, params['model_path'])
     helperfns.save_files(sess, saver, csv_path, train_val_error, params)
+    
+    return best_error
 
 
 def main_exp(params):
@@ -323,5 +316,6 @@ def main_exp(params):
     # data is num_steps x num_examples x n
     data_val = np.load(('./data/%s_val_x.npy' % (params['data_name'])))
 
-    try_net(data_val, params)
+    best_error = try_net(data_val, params)
     tf.reset_default_graph()
+    return best_error
