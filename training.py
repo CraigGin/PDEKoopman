@@ -33,7 +33,7 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
     with tf.variable_scope("decoder_inner", reuse=True):
         IFT = tf.get_variable("IFT")
 
-    denominator_nonzero = 10 ** (-5)
+    denominator_nonzero = 10 ** (-8)
 
     # autoencoder loss
     if params['autoencoder_loss_lam']:
@@ -41,10 +41,10 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
         exact = tf.gather(x,np.arange(num_shifts_total))
         pred = tf.gather(reconstructed_x,np.arange(num_shifts_total))
         if params['relative_loss']:
-            loss1_denominator = tf.reduce_sum(tf.square(exact),2) + denominator_nonzero
+            loss1_denominator = tf.reduce_mean(tf.square(exact),2) + denominator_nonzero
         else:
             loss1_denominator = tf.to_double(1.0)
-        norm_squared = tf.reduce_sum(tf.square(exact - pred), 2)
+        norm_squared = tf.reduce_mean(tf.square(exact - pred), 2)
         rel_error = tf.truediv(norm_squared, loss1_denominator)
         mse = tf.reduce_mean(rel_error)
         loss1 = tf.multiply(params['autoencoder_loss_lam'],mse, name="loss1")
@@ -56,10 +56,10 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
         exact = tf.gather(x,params['shifts'])
         pred = tf.gather(y,params['shifts'])
         if params['relative_loss']:
-            loss2_denominator = tf.reduce_sum(tf.square(exact),2) + denominator_nonzero
+            loss2_denominator = tf.reduce_mean(tf.square(exact),2) + denominator_nonzero
         else:
             loss2_denominator = tf.to_double(1.0)
-        norm_squared = tf.reduce_sum(tf.square(exact - pred), 2)
+        norm_squared = tf.reduce_mean(tf.square(exact - pred), 2)
         rel_error = tf.truediv(norm_squared, loss2_denominator)
         mse = tf.reduce_mean(rel_error)
         loss2 = tf.multiply(params['prediction_loss_lam'],mse, name="loss2")
@@ -74,10 +74,10 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
         for j in np.arange(max(params['shifts_middle'])):
             if (j + 1) in params['shifts_middle']:
                 if params['relative_loss']:
-                    loss3_denominator = tf.reduce_sum(tf.square(g_list[count_shifts_middle + 1]), 1) + denominator_nonzero
+                    loss3_denominator = tf.reduce_mean(tf.square(g_list[count_shifts_middle + 1]), 1) + denominator_nonzero
                 else:
                     loss3_denominator = tf.to_double(1.0)
-                norm_squared = tf.reduce_sum(tf.square(next_step - g_list[count_shifts_middle + 1]), 1)
+                norm_squared = tf.reduce_mean(tf.square(next_step - g_list[count_shifts_middle + 1]), 1)
                 rel_error = tf.truediv(norm_squared,loss3_denominator)
                 loss3 = loss3 + params['linearity_loss_lam'] * tf.reduce_mean(rel_error)
                 count_shifts_middle += 1
@@ -91,10 +91,10 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
         encoded = tf.tensordot(partial_encoded_list,FT, axes=([2],[0]))
         pred = tf.tensordot(encoded,IFT, axes=([2],[0]))
         if params['relative_loss']:
-            loss4_denominator = tf.reduce_sum(tf.square(exact),2) + denominator_nonzero
+            loss4_denominator = tf.reduce_mean(tf.square(exact),2) + denominator_nonzero
         else:
             loss4_denominator = tf.to_double(1.0)
-        norm_squared = tf.reduce_sum(tf.square(exact - pred), 2)
+        norm_squared = tf.reduce_mean(tf.square(exact - pred), 2)
         rel_error = tf.truediv(norm_squared, loss4_denominator)
         mse = tf.reduce_mean(rel_error)
         loss4 = tf.multiply(params['inner_autoencoder_loss_lam'],mse, name="loss4")
@@ -106,10 +106,10 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
         exact = x
         pred = outer_reconst_x 
         if params['relative_loss']:
-            loss5_denominator = tf.reduce_sum(tf.square(exact),2) + denominator_nonzero
+            loss5_denominator = tf.reduce_mean(tf.square(exact),2) + denominator_nonzero
         else:
             loss5_denominator = tf.to_double(1.0)
-        norm_squared = tf.reduce_sum(tf.square(exact - pred), 2)
+        norm_squared = tf.reduce_mean(tf.square(exact - pred), 2)
         rel_error = tf.truediv(norm_squared, loss5_denominator)
         mse = tf.reduce_mean(rel_error)
         loss5 = tf.multiply(params['outer_autoencoder_loss_lam'],mse, name="loss5")
