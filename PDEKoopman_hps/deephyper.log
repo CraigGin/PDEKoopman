@@ -1,0 +1,103 @@
+2019-07-16 13:27:16|1320|INFO|deephyper:50] 
+
+Loading Deephyper
+--------------
+2019-07-16 13:27:17|1320|INFO|deephyper.search.search:41] Evaluator will execute the function: Burgers_Experiment28_HyperSearch.py
+2019-07-16 13:27:17|1320|INFO|deephyper.evaluator._subprocess:98] Subprocess Evaluator will execute run() from module Burgers_Experiment28_HyperSearch
+2019-07-16 13:27:17|1320|INFO|deephyper.search.search:46] Options: {   'acq_func': 'gp_hedge',
+    'backend': 'tensorflow',
+    'eval_timeout_minutes': 4096,
+    'evaluator': 'subprocess',
+    'learner': 'RF',
+    'liar_strategy': 'cl_max',
+    'max_evals': 100,
+    'problem': 'problem.py',
+    'run': 'Burgers_Experiment28_HyperSearch.py'}
+2019-07-16 13:27:17|1320|INFO|deephyper.search.search:48] Hyperparameter space definition: OrderedDict([   ('L1_lam', (0, 0.0001)),
+                ('L2_lam', (0, 0.0001)),
+                ('add_identity', (0, 1)),
+                ('diag_L', (0, 1)),
+                ('initialization', ['He', 'identity']),
+                ('learning_rate', (1e-06, 0.001)),
+                ('log_space', (0, 1)),
+                ('num_encoder_weights', (1, 8))])
+2019-07-16 13:27:17|1320|INFO|deephyper.search.search:49] Created subprocess evaluator
+2019-07-16 13:27:17|1320|INFO|deephyper.search.search:50] Evaluator: num_workers is 1
+2019-07-16 13:27:17|1320|INFO|deephyper.search.hps.ambs:49] Initializing AMBS
+2019-07-16 13:27:17|1320|INFO|deephyper.search.hps.optimizer.optimizer:47] Using skopt.Optimizer with RF base_estimator
+2019-07-16 13:27:17|1320|INFO|deephyper.search.hps.ambs:76] Generating 1 initial points...
+2019-07-16 13:27:17|1320|INFO|deephyper.evaluator.evaluate:121] Submitted new eval of {'L1_lam': 0.0, 'L2_lam': 1e-08, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.0001, 'log_space': 0, 'num_encoder_weights': 6}
+2019-07-16 13:27:17|1320|INFO|deephyper.search.hps.ambs:82] Elapsed time: 00:00:0.00
+2019-07-16 13:48:17|1320|INFO|deephyper.evaluator.evaluate:215] New eval finished: {"L1_lam": 0.0, "L2_lam": 1e-08, "add_identity": 1, "diag_L": 1, "initialization": "He", "learning_rate": 0.0001, "log_space": 0, "num_encoder_weights": 6} --> 0.24782705
+2019-07-16 13:48:17|1320|INFO|deephyper.evaluator.evaluate:226] Requested eval x: {'L1_lam': 0.0, 'L2_lam': 1e-08, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.0001, 'log_space': 0, 'num_encoder_weights': 6} y: 0.24782705
+2019-07-16 13:48:17|1320|INFO|deephyper.search.hps.ambs:90] Refitting model with batch of 1 evals
+2019-07-16 13:48:17|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:118] tell: {'L1_lam': 0.0, 'L2_lam': 1e-08, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.0001, 'log_space': 0, 'num_encoder_weights': 6} --> (0.0, 1e-08, 1, 1, 'He', 0.0001, 0, 6): evaluated objective: 0.24782705
+2019-07-16 13:48:17|1320|INFO|deephyper.search.hps.ambs:93] Drawing 1 points with strategy cl_max
+2019-07-16 13:48:18|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:76] _ask: [9.438799637635205e-05, 3.58030388917746e-05, 0, 0, 'identity', 0.0005888385718793933, 1, 7] lie: -0.24782705
+2019-07-16 13:48:18|1320|INFO|deephyper.evaluator.evaluate:121] Submitted new eval of {'L1_lam': 9.438799637635205e-05, 'L2_lam': 3.58030388917746e-05, 'add_identity': 0, 'diag_L': 0, 'initialization': 'identity', 'learning_rate': 0.0005888385718793933, 'log_space': 1, 'num_encoder_weights': 7}
+2019-07-16 13:48:20|1320|INFO|deephyper.search.hps.ambs:82] Elapsed time: 00:21:2.22
+2019-07-16 14:09:16|1320|INFO|deephyper.evaluator.evaluate:215] New eval finished: {"L1_lam": 9.438799637635205e-05, "L2_lam": 3.58030388917746e-05, "add_identity": 0, "diag_L": 0, "initialization": "identity", "learning_rate": 0.0005888385718793933, "log_space": 1, "num_encoder_weights": 7} --> 1.780975
+2019-07-16 14:09:16|1320|INFO|deephyper.evaluator.evaluate:226] Requested eval x: {'L1_lam': 9.438799637635205e-05, 'L2_lam': 3.58030388917746e-05, 'add_identity': 0, 'diag_L': 0, 'initialization': 'identity', 'learning_rate': 0.0005888385718793933, 'log_space': 1, 'num_encoder_weights': 7} y: 1.780975
+2019-07-16 14:09:16|1320|INFO|deephyper.search.hps.ambs:90] Refitting model with batch of 1 evals
+2019-07-16 14:09:16|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:118] tell: {'L1_lam': 9.438799637635205e-05, 'L2_lam': 3.58030388917746e-05, 'add_identity': 0, 'diag_L': 0, 'initialization': 'identity', 'learning_rate': 0.0005888385718793933, 'log_space': 1, 'num_encoder_weights': 7} --> (9.438799637635205e-05, 3.58030388917746e-05, 0, 0, 'identity', 0.0005888385718793933, 1, 7): evaluated objective: 1.780975
+2019-07-16 14:09:17|1320|INFO|deephyper.search.hps.ambs:93] Drawing 1 points with strategy cl_max
+2019-07-16 14:09:17|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:76] _ask: [4.9021913818757464e-05, 9.569723992472003e-06, 0, 0, 'identity', 0.000774493486852002, 1, 2] lie: -0.24782705
+2019-07-16 14:09:17|1320|INFO|deephyper.evaluator.evaluate:121] Submitted new eval of {'L1_lam': 4.9021913818757464e-05, 'L2_lam': 9.569723992472003e-06, 'add_identity': 0, 'diag_L': 0, 'initialization': 'identity', 'learning_rate': 0.000774493486852002, 'log_space': 1, 'num_encoder_weights': 2}
+2019-07-16 14:09:17|1320|INFO|deephyper.search.hps.ambs:82] Elapsed time: 00:41:59.57
+2019-07-16 14:18:27|1320|INFO|deephyper.evaluator.evaluate:215] New eval finished: {"L1_lam": 4.9021913818757464e-05, "L2_lam": 9.569723992472003e-06, "add_identity": 0, "diag_L": 0, "initialization": "identity", "learning_rate": 0.000774493486852002, "log_space": 1, "num_encoder_weights": 2} --> 0.78245986
+2019-07-16 14:18:27|1320|INFO|deephyper.evaluator.evaluate:226] Requested eval x: {'L1_lam': 4.9021913818757464e-05, 'L2_lam': 9.569723992472003e-06, 'add_identity': 0, 'diag_L': 0, 'initialization': 'identity', 'learning_rate': 0.000774493486852002, 'log_space': 1, 'num_encoder_weights': 2} y: 0.78245986
+2019-07-16 14:18:27|1320|INFO|deephyper.search.hps.ambs:90] Refitting model with batch of 1 evals
+2019-07-16 14:18:27|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:118] tell: {'L1_lam': 4.9021913818757464e-05, 'L2_lam': 9.569723992472003e-06, 'add_identity': 0, 'diag_L': 0, 'initialization': 'identity', 'learning_rate': 0.000774493486852002, 'log_space': 1, 'num_encoder_weights': 2} --> (4.9021913818757464e-05, 9.569723992472003e-06, 0, 0, 'identity', 0.000774493486852002, 1, 2): evaluated objective: 0.78245986
+2019-07-16 14:18:27|1320|INFO|deephyper.search.hps.ambs:93] Drawing 1 points with strategy cl_max
+2019-07-16 14:18:27|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:76] _ask: [9.374120568006824e-05, 9.467153212850546e-05, 1, 1, 'He', 0.0003297936805543357, 0, 4] lie: -0.24782705
+2019-07-16 14:18:27|1320|INFO|deephyper.evaluator.evaluate:121] Submitted new eval of {'L1_lam': 9.374120568006824e-05, 'L2_lam': 9.467153212850546e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.0003297936805543357, 'log_space': 0, 'num_encoder_weights': 4}
+2019-07-16 14:18:27|1320|INFO|deephyper.search.hps.ambs:82] Elapsed time: 00:51:9.77
+2019-07-16 14:39:19|1320|INFO|deephyper.evaluator.evaluate:215] New eval finished: {"L1_lam": 9.374120568006824e-05, "L2_lam": 9.467153212850546e-05, "add_identity": 1, "diag_L": 1, "initialization": "He", "learning_rate": 0.0003297936805543357, "log_space": 0, "num_encoder_weights": 4} --> 0.1379496
+2019-07-16 14:39:19|1320|INFO|deephyper.evaluator.evaluate:226] Requested eval x: {'L1_lam': 9.374120568006824e-05, 'L2_lam': 9.467153212850546e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.0003297936805543357, 'log_space': 0, 'num_encoder_weights': 4} y: 0.1379496
+2019-07-16 14:39:19|1320|INFO|deephyper.search.hps.ambs:90] Refitting model with batch of 1 evals
+2019-07-16 14:39:19|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:118] tell: {'L1_lam': 9.374120568006824e-05, 'L2_lam': 9.467153212850546e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.0003297936805543357, 'log_space': 0, 'num_encoder_weights': 4} --> (9.374120568006824e-05, 9.467153212850546e-05, 1, 1, 'He', 0.0003297936805543357, 0, 4): evaluated objective: 0.1379496
+2019-07-16 14:39:19|1320|INFO|deephyper.search.hps.ambs:93] Drawing 1 points with strategy cl_max
+2019-07-16 14:39:19|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:76] _ask: [7.648509791621307e-05, 1.6461883670208635e-05, 1, 1, 'He', 0.0007282759689044114, 0, 6] lie: -0.1379496
+2019-07-16 14:39:20|1320|INFO|deephyper.evaluator.evaluate:121] Submitted new eval of {'L1_lam': 7.648509791621307e-05, 'L2_lam': 1.6461883670208635e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.0007282759689044114, 'log_space': 0, 'num_encoder_weights': 6}
+2019-07-16 14:39:20|1320|INFO|deephyper.search.hps.ambs:82] Elapsed time: 01:12:2.18
+2019-07-16 15:00:24|1320|INFO|deephyper.evaluator.evaluate:215] New eval finished: {"L1_lam": 7.648509791621307e-05, "L2_lam": 1.6461883670208635e-05, "add_identity": 1, "diag_L": 1, "initialization": "He", "learning_rate": 0.0007282759689044114, "log_space": 0, "num_encoder_weights": 6} --> 0.10906532
+2019-07-16 15:00:24|1320|INFO|deephyper.evaluator.evaluate:226] Requested eval x: {'L1_lam': 7.648509791621307e-05, 'L2_lam': 1.6461883670208635e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.0007282759689044114, 'log_space': 0, 'num_encoder_weights': 6} y: 0.10906532
+2019-07-16 15:00:24|1320|INFO|deephyper.search.hps.ambs:90] Refitting model with batch of 1 evals
+2019-07-16 15:00:24|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:118] tell: {'L1_lam': 7.648509791621307e-05, 'L2_lam': 1.6461883670208635e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.0007282759689044114, 'log_space': 0, 'num_encoder_weights': 6} --> (7.648509791621307e-05, 1.6461883670208635e-05, 1, 1, 'He', 0.0007282759689044114, 0, 6): evaluated objective: 0.10906532
+2019-07-16 15:00:24|1320|INFO|deephyper.search.hps.ambs:93] Drawing 1 points with strategy cl_max
+2019-07-16 15:00:24|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:76] _ask: [7.522868929822182e-05, 5.0258327323518203e-05, 1, 1, 'He', 0.00021511533145261266, 0, 6] lie: -0.10906532
+2019-07-16 15:00:24|1320|INFO|deephyper.evaluator.evaluate:121] Submitted new eval of {'L1_lam': 7.522868929822182e-05, 'L2_lam': 5.0258327323518203e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.00021511533145261266, 'log_space': 0, 'num_encoder_weights': 6}
+2019-07-16 15:00:24|1320|INFO|deephyper.search.hps.ambs:82] Elapsed time: 01:33:7.00
+2019-07-16 15:21:25|1320|INFO|deephyper.evaluator.evaluate:215] New eval finished: {"L1_lam": 7.522868929822182e-05, "L2_lam": 5.0258327323518203e-05, "add_identity": 1, "diag_L": 1, "initialization": "He", "learning_rate": 0.00021511533145261266, "log_space": 0, "num_encoder_weights": 6} --> 0.17686568
+2019-07-16 15:21:25|1320|INFO|deephyper.evaluator.evaluate:226] Requested eval x: {'L1_lam': 7.522868929822182e-05, 'L2_lam': 5.0258327323518203e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.00021511533145261266, 'log_space': 0, 'num_encoder_weights': 6} y: 0.17686568
+2019-07-16 15:21:25|1320|INFO|deephyper.search.hps.ambs:90] Refitting model with batch of 1 evals
+2019-07-16 15:21:25|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:118] tell: {'L1_lam': 7.522868929822182e-05, 'L2_lam': 5.0258327323518203e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.00021511533145261266, 'log_space': 0, 'num_encoder_weights': 6} --> (7.522868929822182e-05, 5.0258327323518203e-05, 1, 1, 'He', 0.00021511533145261266, 0, 6): evaluated objective: 0.17686568
+2019-07-16 15:21:25|1320|INFO|deephyper.search.hps.ambs:93] Drawing 1 points with strategy cl_max
+2019-07-16 15:21:25|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:76] _ask: [1.076629293831163e-05, 3.6585952582655865e-05, 1, 1, 'He', 0.000484547778499838, 1, 5] lie: -0.10906532
+2019-07-16 15:21:25|1320|INFO|deephyper.evaluator.evaluate:121] Submitted new eval of {'L1_lam': 1.076629293831163e-05, 'L2_lam': 3.6585952582655865e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.000484547778499838, 'log_space': 1, 'num_encoder_weights': 5}
+2019-07-16 15:21:25|1320|INFO|deephyper.search.hps.ambs:82] Elapsed time: 01:54:7.70
+2019-07-16 15:22:56|1320|INFO|deephyper.evaluator.evaluate:215] New eval finished: {"L1_lam": 1.076629293831163e-05, "L2_lam": 3.6585952582655865e-05, "add_identity": 1, "diag_L": 1, "initialization": "He", "learning_rate": 0.000484547778499838, "log_space": 1, "num_encoder_weights": 5} --> 583.5512
+2019-07-16 15:22:56|1320|INFO|deephyper.evaluator.evaluate:226] Requested eval x: {'L1_lam': 1.076629293831163e-05, 'L2_lam': 3.6585952582655865e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.000484547778499838, 'log_space': 1, 'num_encoder_weights': 5} y: 583.5512
+2019-07-16 15:22:56|1320|INFO|deephyper.search.hps.ambs:90] Refitting model with batch of 1 evals
+2019-07-16 15:22:56|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:118] tell: {'L1_lam': 1.076629293831163e-05, 'L2_lam': 3.6585952582655865e-05, 'add_identity': 1, 'diag_L': 1, 'initialization': 'He', 'learning_rate': 0.000484547778499838, 'log_space': 1, 'num_encoder_weights': 5} --> (1.076629293831163e-05, 3.6585952582655865e-05, 1, 1, 'He', 0.000484547778499838, 1, 5): evaluated objective: 583.5512
+2019-07-16 15:22:56|1320|INFO|deephyper.search.hps.ambs:93] Drawing 1 points with strategy cl_max
+2019-07-16 15:22:56|1320|DEBUG|deephyper.search.hps.optimizer.optimizer:76] _ask: [3.4355281010683307e-06, 5.326280759972933e-05, 1, 0, 'He', 0.0004454131128451082, 1, 7] lie: -0.10906532
+2019-07-16 15:22:56|1320|INFO|deephyper.evaluator.evaluate:121] Submitted new eval of {'L1_lam': 3.4355281010683307e-06, 'L2_lam': 5.326280759972933e-05, 'add_identity': 1, 'diag_L': 0, 'initialization': 'He', 'learning_rate': 0.0004454131128451082, 'log_space': 1, 'num_encoder_weights': 7}
+2019-07-16 15:22:56|1320|INFO|deephyper.search.hps.ambs:82] Elapsed time: 01:55:38.91
+2019-07-16 15:24:31|1320|ERROR|deephyper:54] Uncaught exception:
+Traceback (most recent call last):
+  File "/usr/lib/python3.6/runpy.py", line 193, in _run_module_as_main
+    "__main__", mod_spec)
+  File "/usr/lib/python3.6/runpy.py", line 85, in _run_code
+    exec(code, run_globals)
+  File "/home/craiggin/deephyper/deephyper/search/hps/ambs.py", line 113, in <module>
+    search.main()
+  File "/home/craiggin/deephyper/deephyper/search/hps/ambs.py", line 83, in main
+    results = list(self.evaluator.get_finished_evals())
+  File "/home/craiggin/deephyper/deephyper/evaluator/evaluate.py", line 214, in get_finished_evals
+    y = future.result()
+  File "/home/craiggin/deephyper/deephyper/evaluator/_subprocess.py", line 43, in result
+    stdout, stderr_data = self.proc.communicate()
+  File "/usr/lib/python3.6/subprocess.py", line 830, in communicate
+    stdout = self.stdout.read()
+ValueError: I/O operation on closed file.
