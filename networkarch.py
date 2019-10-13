@@ -14,7 +14,8 @@ def identity_initializer():
         elif len(shape) == 3:
             array = np.zeros(shape, dtype=np.float32)
             for i in range(shape[2]):
-                array[:, :, i] = helperfns.identity_seed(shape[0],shape[1])
+                std_dev = 0.1/(np.abs(shape[1]-shape[0])+1)
+                array[:, :, i] = helperfns.identity_seed(shape[0],shape[1])+np.random.normal(0,std_dev,(shape[0],shape[1]))
             return tf.constant(array)
         else:
             raise ValueError("Error, initializer expected a different shape: " % len(shape))
@@ -81,7 +82,7 @@ def encoder_apply_cn(x, n_inputs, conv1_filters, n_middle, L1_lam, L2_lam, shift
 
 def encoder_apply_one_shift_cn(x, n_inputs, conv1_filters, n_middle, L1_lam, L2_lam, reuse, fix_middle, seed_middle, add_identity, initialization):
 
-    my_conv_layer = partial(tf.layers.conv1d, activation=tf.nn.relu, kernel_initializer=initialization,
+    my_conv_layer = partial(tf.layers.conv1d, activation=tf.nn.relu, kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
                              kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
                              bias_regularizer=None)
 
@@ -90,12 +91,12 @@ def encoder_apply_one_shift_cn(x, n_inputs, conv1_filters, n_middle, L1_lam, L2_
         log_uk_reshaped = tf.reshape(log_uk, shape=[-1, n_inputs, 1], name="log_uk_reshaped")
         hidden1_encode = my_conv_layer(log_uk_reshaped, filters=conv1_filters, kernel_size=1, strides=1, padding="SAME",
                             name="hidden1_encode")
-        a_encode = tf.get_variable(name="a_encode", dtype=tf.float32, 
-                            initializer=np.ones(conv1_filters, dtype=np.float32)/conv1_filters, 
-                            regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam))
-        hidden1_encode_scaled= a_encode*hidden1_encode
-        hidden2_encode = tf.reduce_sum(hidden1_encode_scaled, axis=2, name="hidden2_encode")
-        hidden3_encode = tf.layers.dense(hidden2_encode, n_inputs, name="hidden3_encode", activation=None, 
+        hidden2_encode = tf.layers.conv1d(hidden1_encode, filters=1, kernel_size=1, strides=1, padding="SAME", 
+                            kernel_initializer=tf.constant_initializer(np.eye(1, dtype=np.float32)/conv1_filters), 
+                            kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            bias_regularizer=None, name="hidden2_encode")
+        hidden2_encode_reshaped = tf.reshape(hidden2_encode, shape=[-1, n_inputs], name="hidden2_encode_reshaped")
+        hidden3_encode = tf.layers.dense(hidden2_encode_reshaped, n_inputs, name="hidden3_encode", activation=None, 
                             kernel_initializer=initialization,
                             kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
                             bias_regularizer=None)
@@ -124,7 +125,7 @@ def decoder_apply_cn(x, n_middle, conv2_filters, n_outputs, L1_lam, L2_lam, reus
 
 def outer_decoder_apply_cn(x, conv2_filters, n_outputs, L1_lam, L2_lam, reuse, add_identity, initialization):
 
-    my_conv_layer = partial(tf.layers.conv1d, activation=tf.nn.relu, kernel_initializer=initialization,
+    my_conv_layer = partial(tf.layers.conv1d, activation=tf.nn.relu, kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
                              kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
                              bias_regularizer=None)
 
@@ -133,11 +134,12 @@ def outer_decoder_apply_cn(x, conv2_filters, n_outputs, L1_lam, L2_lam, reuse, a
         log_vkplus1_reshaped = tf.reshape(log_vkplus1, shape=[-1, n_outputs, 1], name="log_vkplus1_reshaped")
         hidden1_decode = my_conv_layer(log_vkplus1_reshaped, filters=conv2_filters, kernel_size=4, strides=1, padding="SAME",
                                 name="hidden1_decode")
-        a_decode = tf.get_variable(name="a_decode", dtype=tf.float32, initializer=np.ones(conv2_filters, dtype=np.float32)/conv2_filters, 
-                                regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam))
-        hidden1_decode_scaled= a_decode*hidden1_decode
-        hidden2_decode = tf.reduce_sum(hidden1_decode_scaled, axis=2, name="hidden2_decode")
-        hidden3_decode = tf.layers.dense(hidden2_decode, n_outputs, name="hidden3_decode", activation=None, 
+        hidden2_decode = tf.layers.conv1d(hidden1_decode, filters=1, kernel_size=1, strides=1, padding="SAME", 
+                            kernel_initializer=tf.constant_initializer(np.eye(1, dtype=np.float32)/conv2_filters), 
+                            kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
+                            bias_regularizer=None, name="hidden2_decode")
+        hidden2_decode_reshaped = tf.reshape(hidden2_decode, shape=[-1, n_outputs], name="hidden2_decode_reshaped")
+        hidden3_decode = tf.layers.dense(hidden2_decode_reshaped, n_outputs, name="hidden3_decode", activation=None, 
                                 kernel_initializer=initialization,
                                 kernel_regularizer=tf.contrib.layers.l1_l2_regularizer(scale_l1=L1_lam,scale_l2=L2_lam), 
                                 bias_regularizer=None)

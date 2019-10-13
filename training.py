@@ -33,13 +33,12 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
     with tf.variable_scope("decoder_inner", reuse=True):
         IFT = tf.get_variable("IFT")
 
-    denominator_nonzero = 10 ** (-8)
+    denominator_nonzero = 10 ** (-5)
 
     # autoencoder loss
     if params['autoencoder_loss_lam']:
-        num_shifts_total = helperfns.num_shifts_in_stack(params) + 1
-        exact = tf.gather(x,np.arange(num_shifts_total))
-        pred = tf.gather(reconstructed_x,np.arange(num_shifts_total))
+        exact = x
+        pred = reconstructed_x
         if params['relative_loss']:
             loss1_denominator = tf.reduce_mean(tf.square(exact),2) + denominator_nonzero
         else:
@@ -54,7 +53,7 @@ def define_loss(x, y, partial_encoded_list, g_list, reconstructed_x, outer_recon
     # gets dynamics (prediction loss)
     if params['prediction_loss_lam']:
         exact = tf.gather(x,params['shifts'])
-        pred = tf.gather(y,params['shifts'])
+        pred = [y[i] for i in params['shifts']]
         if params['relative_loss']:
             loss2_denominator = tf.reduce_mean(tf.square(exact),2) + denominator_nonzero
         else:
@@ -187,7 +186,7 @@ def try_net(data_val, params):
 
     num_saved_per_file_pass = params['num_steps_per_file_pass'] / 20 + 1
     num_saved = np.floor(num_saved_per_file_pass * params['data_train_len'] * params['num_passes_per_file']).astype(int)
-    train_val_error = np.zeros([num_saved, 20])
+    train_val_error = np.zeros([num_saved, 16])
     count = 0
     best_error = 10000
 
