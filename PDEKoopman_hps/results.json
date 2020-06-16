@@ -1,9 +1,0 @@
-{
-    "{\"L1_lam\": 0.0, \"L2_lam\": 1e-08, \"add_identity\": 1, \"diag_L\": 1, \"initialization\": \"He\", \"learning_rate\": 0.0001, \"log_space\": 0, \"num_encoder_weights\": 6}": 0.24782705,
-    "{\"L1_lam\": 1.076629293831163e-05, \"L2_lam\": 3.6585952582655865e-05, \"add_identity\": 1, \"diag_L\": 1, \"initialization\": \"He\", \"learning_rate\": 0.000484547778499838, \"log_space\": 1, \"num_encoder_weights\": 5}": 583.5512,
-    "{\"L1_lam\": 4.9021913818757464e-05, \"L2_lam\": 9.569723992472003e-06, \"add_identity\": 0, \"diag_L\": 0, \"initialization\": \"identity\", \"learning_rate\": 0.000774493486852002, \"log_space\": 1, \"num_encoder_weights\": 2}": 0.78245986,
-    "{\"L1_lam\": 7.522868929822182e-05, \"L2_lam\": 5.0258327323518203e-05, \"add_identity\": 1, \"diag_L\": 1, \"initialization\": \"He\", \"learning_rate\": 0.00021511533145261266, \"log_space\": 0, \"num_encoder_weights\": 6}": 0.17686568,
-    "{\"L1_lam\": 7.648509791621307e-05, \"L2_lam\": 1.6461883670208635e-05, \"add_identity\": 1, \"diag_L\": 1, \"initialization\": \"He\", \"learning_rate\": 0.0007282759689044114, \"log_space\": 0, \"num_encoder_weights\": 6}": 0.10906532,
-    "{\"L1_lam\": 9.374120568006824e-05, \"L2_lam\": 9.467153212850546e-05, \"add_identity\": 1, \"diag_L\": 1, \"initialization\": \"He\", \"learning_rate\": 0.0003297936805543357, \"log_space\": 0, \"num_encoder_weights\": 4}": 0.1379496,
-    "{\"L1_lam\": 9.438799637635205e-05, \"L2_lam\": 3.58030388917746e-05, \"add_identity\": 0, \"diag_L\": 0, \"initialization\": \"identity\", \"learning_rate\": 0.0005888385718793933, \"log_space\": 1, \"num_encoder_weights\": 7}": 1.780975
-}

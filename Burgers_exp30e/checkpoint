@@ -1,0 +1,2 @@
+model_checkpoint_path: "Burgers_Eqn_exp30_2019_10_31_06_23_27_317592_model.ckpt"
+all_model_checkpoint_paths: "Burgers_Eqn_exp30_2019_10_31_06_23_27_317592_model.ckpt"

@@ -1,0 +1,2 @@
+model_checkpoint_path: "Heat_Eqn_exp29_2019_08_04_05_22_13_599012_model.ckpt"
+all_model_checkpoint_paths: "Heat_Eqn_exp29_2019_08_04_05_22_13_599012_model.ckpt"
