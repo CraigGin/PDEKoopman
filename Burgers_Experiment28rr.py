@@ -8,7 +8,7 @@ import tensorflow as tf
 
 params = {}
 params['data_name'] = 'Burgers_Eqn_exp28'  ## FILL IN HERE (from file name)
-params['folder_name'] = 'Burgers_exp28ss'  # UPDATE so goes in own folder
+params['folder_name'] = 'Burgers_exp28rr'  # UPDATE so goes in own folder
 params['restore'] = 0 # Restore a previous model
 
 n = 128  # number of inputs (spatial discretization)

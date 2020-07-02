@@ -35,8 +35,6 @@ with open(pkl_file, 'rb') as f:
 
 print(params['minRegTest'])
 
-params['folder_name'] = 'Burgers_exp28rr'
-params['model_path'] = params['model_path'].replace('Burgers_exp28ss','Burgers_exp28rr')
 params['restore'] = 1
 params['auto_first'] = 0
 params['max_time'] = 6*60*60
