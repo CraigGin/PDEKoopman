@@ -3,7 +3,9 @@
 
 This code is for the paper ["Deep Learning Models for Global Coordinate Transformations that Linearise PDEs"](https://www.cambridge.org/core/journals/european-journal-of-applied-mathematics/article/deep-learning-models-for-global-coordinate-transformations-that-linearise-pdes/4C3252EA5D681D07D933AD31EE539192) by Craig Gin, Bethany Lusch, Steven L. Brunton, and J. Nathan Kutz. All of the code is written for Python 2 and Tensorflow 1.
 
-Our recommendation is to only use this code to verify the results of the above paper. If you are interested in adapting the code and using it for a problem you are working on, you may want to wait. We are currently working on updating the code to run with Python 3 and Tensorflow 2 and as part of this update will be making efforts to make the code much more user-friendly. We will update this repository with a link when that is available. As of Sept. 28, 2020, the new version of the code is just in need of some final testing so it should be available soon.
+Our recommendation is to only use this code to verify the results of the above paper. If you are interested in adapting the code and using it for a problem you are working on, we highly recommend you use the updated version of the code:
+
+https://github.com/CraigGin/PDEKoopman2
 
 To run the code:
 
